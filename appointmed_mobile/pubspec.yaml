@@ -1,0 +1,36 @@
+name: appointmed_mobile
+description: AppointMed - AI symptom triage to confirmed hospital appointment.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  google_fonts: ^6.1.0
+  intl: ^0.18.1
+  provider: ^6.1.1
+  shared_preferences: ^2.2.2
+
+  # Networking & AI
+  http: ^1.2.2
+  supabase_flutter: ^2.8.0
+
+  # Media & Storage
+  image_picker: ^1.1.2
+  file_picker: ^8.1.2
+  flutter_secure_storage: ^9.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/

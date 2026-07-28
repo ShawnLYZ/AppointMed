@@ -1,0 +1,328 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.dashboard__welcome {
+  margin-bottom: var(--space-2);
+}
+
+.dashboard__title {
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  color: var(--neutral-900);
+  margin-bottom: var(--space-2);
+}
+
+.dashboard__subtitle {
+  font-size: var(--text-base);
+  color: var(--neutral-500);
+}
+
+/* Error banner - `.card` compound so it beats `.card--default`'s border/background
+   at equal specificity regardless of CSS import order, instead of relying on
+   Dashboard.css happening to load after Card.css. */
+.dashboard__error.card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  background: var(--error-50);
+  border-color: var(--error-500);
+}
+
+.dashboard__error-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--error-600);
+  margin-bottom: var(--space-1);
+}
+
+.dashboard__error-detail {
+  font-size: var(--text-sm);
+  color: var(--neutral-600);
+}
+
+/* Stats */
+.dashboard__stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-6);
+}
+
+.dashboard__stat-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard__stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary-500), var(--primary-400));
+}
+
+.dashboard__stat-card--highlight::before {
+  background: linear-gradient(90deg, var(--accent-500), var(--accent-400));
+}
+
+.dashboard__stat-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.dashboard__stat-card--highlight:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.dashboard__stat-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xl);
+  background: var(--primary-50);
+  color: var(--primary-600);
+  margin-bottom: var(--space-4);
+}
+
+.dashboard__stat-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.dashboard__stat-icon--highlight {
+  background: var(--accent-50);
+  color: var(--accent-600);
+}
+
+.dashboard__stat-value {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  color: var(--neutral-900);
+  margin-bottom: var(--space-1);
+}
+
+.dashboard__stat-value--pending {
+  color: var(--neutral-300);
+}
+
+.dashboard__stat-card--highlight .dashboard__stat-value {
+  color: var(--accent-600);
+}
+
+.dashboard__stat-card--highlight .dashboard__stat-value--pending {
+  color: var(--neutral-300);
+}
+
+.dashboard__stat-label {
+  font-size: var(--text-sm);
+  color: var(--neutral-500);
+}
+
+/* Charts row: pending-requests preview (priority) + specialty breakdown */
+.dashboard__charts {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-6);
+}
+
+.dashboard__chart {
+  min-height: 300px;
+}
+
+.dashboard__chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+}
+
+.dashboard__chart-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--neutral-900);
+}
+
+.dashboard__chart-period {
+  font-size: var(--text-sm);
+  color: var(--neutral-500);
+}
+
+.dashboard__chart-link {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--primary-600);
+  transition: color var(--transition-fast);
+}
+
+.dashboard__chart-link:hover {
+  color: var(--primary-700);
+  text-decoration: underline;
+}
+
+/* Specialty bars */
+.dashboard__specialty-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.dashboard__specialty-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.dashboard__specialty-name {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--neutral-700);
+}
+
+.dashboard__specialty-count {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--neutral-800);
+}
+
+/* Shared list rows (pending-requests preview + recent activity) */
+.dashboard__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.dashboard__list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--neutral-50);
+  border-radius: var(--radius-lg);
+  transition: background var(--transition-fast);
+}
+
+.dashboard__list-item:hover {
+  background: var(--neutral-100);
+}
+
+.dashboard__list-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  flex-shrink: 0;
+}
+
+.dashboard__list-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.dashboard__list-icon--default {
+  background: var(--neutral-100);
+  color: var(--neutral-500);
+}
+
+.dashboard__list-icon--primary {
+  background: var(--primary-100);
+  color: var(--primary-600);
+}
+
+.dashboard__list-icon--success {
+  background: var(--success-50);
+  color: var(--success-500);
+}
+
+.dashboard__list-icon--warning {
+  background: var(--warning-50);
+  color: var(--warning-500);
+}
+
+.dashboard__list-icon--error {
+  background: var(--error-50);
+  color: var(--error-500);
+}
+
+.dashboard__list-icon--info {
+  background: var(--info-50);
+  color: var(--info-500);
+}
+
+.dashboard__list-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard__list-title {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--neutral-800);
+}
+
+.dashboard__list-detail {
+  font-size: var(--text-xs);
+  color: var(--neutral-500);
+  margin-top: var(--space-1);
+  display: block;
+}
+
+.dashboard__list-trailing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.dashboard__list-time {
+  font-size: var(--text-xs);
+  color: var(--neutral-400);
+  white-space: nowrap;
+}
+
+.dashboard__loading {
+  padding: var(--space-8) 0;
+  text-align: center;
+  color: var(--neutral-400);
+  font-size: var(--text-sm);
+}
+
+/* Activity card */
+.dashboard__activity-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--neutral-900);
+  margin-bottom: var(--space-6);
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .dashboard__stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .dashboard__charts {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard__stats {
+    grid-template-columns: 1fr;
+  }
+}

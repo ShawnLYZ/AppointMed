@@ -1,0 +1,19 @@
+{
+  "name": "appointmed-tooling",
+  "private": true,
+  "type": "module",
+  "description": "Repo-level tooling for the AppointMed database: migrations, seed, RLS tests.",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "db:check": "node scripts/db-check.mjs",
+    "db:push": "node scripts/db-push.mjs",
+    "db:verify": "node scripts/db-verify.mjs",
+    "db:seed": "node scripts/seed.mjs",
+    "test:rls": "node --test supabase/tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.49.0",
+    "pg": "^8.13.0",
+    "supabase": "^2.0.0"
+  }
+}

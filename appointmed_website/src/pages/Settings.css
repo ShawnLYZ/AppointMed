@@ -1,0 +1,363 @@
+.settings {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: var(--space-8);
+  align-items: start;
+}
+
+/* Sidebar */
+.settings__sidebar {
+  background: white;
+  border-right: 1px solid var(--neutral-200);
+  padding: var(--space-6);
+  /* 73px matches PortalLayout's real header height: 40px logo + 2x16px (--space-4)
+     vertical padding + 1px bottom border - keeps the sidebar sticking just below it on
+     scroll instead of under/over it. */
+  position: sticky;
+  top: 73px;
+  height: calc(100vh - 73px);
+  overflow-y: auto;
+}
+
+.settings__sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--neutral-600);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.settings__sidebar-item:hover {
+  background: var(--neutral-100);
+  color: var(--neutral-800);
+}
+
+.settings__sidebar-item--active {
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.settings__sidebar-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings__sidebar-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Content */
+.settings__content {
+  min-width: 0;
+}
+
+.settings__section {
+  max-width: 720px;
+}
+
+.settings__section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-8);
+}
+
+.settings__section-title {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--neutral-900);
+  margin-bottom: var(--space-2);
+}
+
+.settings__section-desc {
+  font-size: var(--text-sm);
+  color: var(--neutral-500);
+}
+
+.settings__loading {
+  padding: var(--space-8) 0;
+  text-align: center;
+  color: var(--neutral-400);
+  font-size: var(--text-sm);
+}
+
+/* Banners (load/refresh errors) - `.card` compound so it beats `.card--default`'s
+   border/background at equal specificity regardless of CSS import order, same
+   approach as Dashboard.css's `.dashboard__error.card`. */
+.settings__banner.card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.settings__banner--error.card {
+  background: var(--error-50);
+  border-color: var(--error-500);
+}
+
+.settings__banner-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--error-600);
+  margin-bottom: var(--space-1);
+}
+
+.settings__banner-detail {
+  font-size: var(--text-sm);
+  color: var(--neutral-600);
+}
+
+/* Avatar */
+.settings__avatar-section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+
+.settings__avatar {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
+  border-radius: var(--radius-full);
+  color: white;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+}
+
+/* Form */
+.settings__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.settings__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--neutral-200);
+  margin-top: var(--space-4);
+}
+
+/* Documents' upload button: same action row, no "end of edit form" framing - left
+   aligned, no divider, since it isn't closing out a save/cancel pair. */
+.settings__actions--plain {
+  justify-content: flex-start;
+  padding-top: 0;
+  border-top: none;
+  margin-top: var(--space-5);
+}
+
+/* Working Hours */
+.settings__hours {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.settings__hours-label {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--neutral-700);
+}
+
+.settings__hours-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.settings__hours-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--neutral-50);
+  border-radius: var(--radius-lg);
+}
+
+.settings__hours-day {
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--neutral-700);
+  min-width: 60px;
+}
+
+.settings__hours-time {
+  font-size: var(--text-sm);
+  color: var(--neutral-600);
+}
+
+.settings__hours-closed {
+  font-size: var(--text-sm);
+  color: var(--neutral-400);
+  font-style: italic;
+}
+
+/* Subscription */
+.settings__sub-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.settings__sub-plan {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--neutral-900);
+  margin-bottom: var(--space-1);
+}
+
+.settings__sub-price {
+  font-size: var(--text-sm);
+  color: var(--neutral-500);
+}
+
+.settings__sub-meta {
+  display: flex;
+  gap: var(--space-8);
+}
+
+.settings__sub-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.settings__sub-meta-label {
+  font-size: var(--text-xs);
+  color: var(--neutral-500);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.settings__sub-meta-value {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--neutral-800);
+}
+
+/* Specialists */
+.settings__specialist-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.settings__specialist {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--neutral-50);
+  border-radius: var(--radius-lg);
+}
+
+.settings__specialist--inactive {
+  opacity: 0.6;
+}
+
+.settings__specialist-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.settings__specialist-name {
+  font-weight: 500;
+  color: var(--neutral-800);
+}
+
+.settings__specialist-meta {
+  font-size: var(--text-sm);
+  color: var(--neutral-500);
+}
+
+/* Documents */
+.settings__note {
+  font-size: var(--text-xs);
+  color: var(--neutral-400);
+  margin-top: var(--space-4);
+}
+
+/* Toast */
+.settings__toast {
+  position: fixed;
+  right: var(--space-6);
+  bottom: var(--space-6);
+  max-width: 380px;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: white;
+  box-shadow: var(--shadow-xl);
+  border-left: 4px solid;
+  font-size: var(--text-sm);
+  color: var(--neutral-700);
+  z-index: var(--z-tooltip);
+  animation: settings-toast-in var(--transition-slow) ease-out;
+}
+
+.settings__toast--success { border-color: var(--success-500); }
+.settings__toast--error { border-color: var(--error-500); }
+
+@keyframes settings-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .settings {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+
+  .settings__sidebar {
+    position: static;
+    height: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    border-right: none;
+    border-bottom: 1px solid var(--neutral-200);
+    padding: var(--space-4);
+  }
+
+  .settings__sidebar-item {
+    width: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .settings__toast {
+    left: var(--space-4);
+    right: var(--space-4);
+    bottom: var(--space-4);
+    max-width: none;
+  }
+}

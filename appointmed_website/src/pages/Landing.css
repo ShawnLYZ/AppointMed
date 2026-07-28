@@ -1,0 +1,582 @@
+.landing {
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Background */
+.landing__bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+}
+
+.landing__bg-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--primary-50) 0%, white 50%, var(--accent-50) 100%);
+}
+
+.landing__bg-pattern {
+  position: absolute;
+  inset: 0;
+  opacity: 0.4;
+  background-image:
+    radial-gradient(circle at 20% 80%, var(--primary-200) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, var(--accent-200) 0%, transparent 50%);
+}
+
+.landing__bg-shapes {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.shape {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.5;
+  animation: float 20s ease-in-out infinite;
+}
+
+.shape--1 {
+  width: 400px;
+  height: 400px;
+  background: var(--primary-300);
+  top: -100px;
+  left: -100px;
+  animation-delay: 0s;
+}
+
+.shape--2 {
+  width: 300px;
+  height: 300px;
+  background: var(--accent-300);
+  top: 50%;
+  right: -50px;
+  animation-delay: -7s;
+}
+
+.shape--3 {
+  width: 350px;
+  height: 350px;
+  background: var(--primary-200);
+  bottom: -100px;
+  left: 30%;
+  animation-delay: -14s;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -30px) scale(1.05); }
+  66% { transform: translate(-20px, 20px) scale(0.95); }
+}
+
+/* Content */
+.landing__content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100vh;
+  padding: var(--space-8);
+  gap: var(--space-12);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Hero Side */
+.landing__hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-8) 0;
+}
+
+.landing__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-8);
+}
+
+.landing__logo {
+  width: 48px;
+  height: 48px;
+}
+
+.landing__brand-name {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--neutral-900);
+}
+
+.landing__title {
+  font-size: var(--text-5xl);
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: var(--space-6);
+  background: linear-gradient(135deg, var(--neutral-900) 0%, var(--neutral-700) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.landing__title-accent {
+  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-500) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.landing__subtitle {
+  font-size: var(--text-lg);
+  color: var(--neutral-600);
+  line-height: 1.7;
+  margin-bottom: var(--space-10);
+  max-width: 480px;
+}
+
+/* Features */
+.landing__features {
+  display: flex;
+  gap: var(--space-6);
+  margin-bottom: var(--space-10);
+}
+
+.landing__feature {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.landing__feature-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-100);
+  border-radius: var(--radius-md);
+  color: var(--primary-600);
+}
+
+.landing__feature-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.landing__feature span {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--neutral-700);
+}
+
+/* Stats */
+.landing__stats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-6);
+  background: white;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  width: fit-content;
+}
+
+.landing__stat {
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+
+.landing__stat-value {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  color: var(--primary-600);
+}
+
+.landing__stat-label {
+  font-size: var(--text-sm);
+  color: var(--neutral-500);
+}
+
+.landing__stat-divider {
+  width: 1px;
+  height: 40px;
+  background: var(--neutral-200);
+}
+
+/* Auth Side */
+.landing__auth {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.landing__auth-card {
+  width: 100%;
+  max-width: 420px;
+}
+
+.landing__auth-header {
+  text-align: center;
+  margin-bottom: var(--space-8);
+}
+
+.landing__auth-title {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--neutral-900);
+  margin-bottom: var(--space-2);
+}
+
+.landing__auth-subtitle {
+  font-size: var(--text-base);
+  color: var(--neutral-500);
+}
+
+.landing__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.landing__auth-switch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--neutral-200);
+  font-size: var(--text-sm);
+  color: var(--neutral-500);
+}
+
+.landing__auth-link {
+  color: var(--primary-600);
+  font-weight: 500;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.landing__auth-link:hover {
+  color: var(--primary-700);
+}
+
+.landing__terms {
+  margin-top: var(--space-6);
+  font-size: var(--text-xs);
+  color: var(--neutral-400);
+  text-align: center;
+}
+
+.landing__terms a {
+  color: var(--neutral-500);
+  text-decoration: underline;
+}
+
+.landing__terms a:hover {
+  color: var(--primary-600);
+}
+
+/* Marketing Sections (shared) */
+.landing__patients,
+.landing__steps,
+.landing__pricing,
+.landing__cta {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--space-20) var(--space-8);
+}
+
+.landing__section-header {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto var(--space-12);
+}
+
+.landing__section-title {
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  margin-bottom: var(--space-3);
+}
+
+.landing__section-subtitle {
+  font-size: var(--text-lg);
+  color: var(--neutral-600);
+  line-height: 1.7;
+}
+
+/* What Patients Get */
+.landing__patient-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-6);
+}
+
+.landing__patient-card {
+  text-align: center;
+}
+
+.landing__patient-icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--space-4);
+  background: var(--primary-100);
+  border-radius: var(--radius-lg);
+  color: var(--primary-600);
+}
+
+.landing__patient-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.landing__patient-card-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--neutral-900);
+  margin-bottom: var(--space-2);
+}
+
+.landing__patient-card-desc {
+  font-size: var(--text-sm);
+  color: var(--neutral-600);
+  line-height: 1.6;
+}
+
+/* How Hospitals Subscribe */
+.landing__steps-strip {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-4);
+}
+
+.landing__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  max-width: 300px;
+  text-align: center;
+}
+
+.landing__step-number {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-md);
+  margin-bottom: var(--space-4);
+}
+
+.landing__step-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--neutral-900);
+  margin-bottom: var(--space-2);
+}
+
+.landing__step-desc {
+  font-size: var(--text-sm);
+  color: var(--neutral-600);
+  line-height: 1.6;
+}
+
+.landing__step-connector {
+  flex-shrink: 0;
+  padding-top: var(--space-3);
+  font-size: var(--text-2xl);
+  color: var(--primary-300);
+}
+
+/* Pricing */
+.landing__pricing-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-6);
+}
+
+.landing__pricing-card {
+  text-align: center;
+}
+
+.landing__pricing-name {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--neutral-900);
+  margin-bottom: var(--space-2);
+}
+
+.landing__pricing-price {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--primary-600);
+  margin-bottom: var(--space-1);
+}
+
+.landing__pricing-price span {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--neutral-500);
+}
+
+.landing__pricing-fee {
+  font-size: var(--text-xs);
+  color: var(--neutral-400);
+  margin-bottom: var(--space-2);
+}
+
+.landing__pricing-limit {
+  font-size: var(--text-sm);
+  color: var(--neutral-500);
+}
+
+/* Final CTA */
+.landing__cta-card {
+  text-align: center;
+}
+
+.landing__cta-title {
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  margin-bottom: var(--space-3);
+}
+
+.landing__cta-subtitle {
+  font-size: var(--text-base);
+  color: var(--neutral-600);
+  margin-bottom: var(--space-8);
+}
+
+.landing__cta-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .landing__content {
+    grid-template-columns: 1fr;
+    gap: var(--space-8);
+  }
+
+  .landing__hero {
+    text-align: center;
+    align-items: center;
+    padding: var(--space-4) 0;
+  }
+
+  .landing__brand {
+    justify-content: center;
+  }
+
+  .landing__subtitle {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .landing__features {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .landing__stats {
+    margin: 0 auto;
+  }
+
+  .landing__patients,
+  .landing__steps,
+  .landing__pricing,
+  .landing__cta {
+    padding: var(--space-16) var(--space-8);
+  }
+
+  .landing__steps-strip {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-8);
+  }
+
+  .landing__step-connector {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .landing__content {
+    padding: var(--space-4);
+  }
+
+  .landing__title {
+    font-size: var(--text-3xl);
+  }
+
+  .landing__patients,
+  .landing__steps,
+  .landing__pricing,
+  .landing__cta {
+    padding: var(--space-12) var(--space-4);
+  }
+
+  .landing__section-title {
+    font-size: var(--text-3xl);
+  }
+
+  .landing__patient-cards,
+  .landing__pricing-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .landing__cta-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .landing__cta-actions .btn {
+    width: 100%;
+  }
+
+  .landing__features {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .landing__feature {
+    width: 100%;
+    max-width: 280px;
+  }
+
+  .landing__stats {
+    width: 100%;
+    justify-content: space-around;
+  }
+
+  .landing__stat-divider {
+    display: none;
+  }
+}

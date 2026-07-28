@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Sampled from the edge of the AppointMed icon tile so the adaptive-icon
+         background is seamless with the foreground artwork under any mask. -->
+    <color name="ic_launcher_background">#D4ECFB</color>
+</resources>

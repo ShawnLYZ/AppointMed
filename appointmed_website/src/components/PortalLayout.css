@@ -1,0 +1,120 @@
+.portal-layout {
+  min-height: 100vh;
+  background: var(--neutral-50);
+}
+
+/* Header */
+.portal-layout__header {
+  background: white;
+  border-bottom: 1px solid var(--neutral-200);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.portal-layout__header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-6);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.portal-layout__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.portal-layout__logo {
+  width: 40px;
+  height: 40px;
+}
+
+.portal-layout__brand-name {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--neutral-900);
+}
+
+.portal-layout__nav {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.portal-layout__nav-item {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--neutral-500);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-fast);
+}
+
+.portal-layout__nav-item:hover {
+  color: var(--neutral-700);
+  background: var(--neutral-100);
+}
+
+.portal-layout__nav-item--active {
+  color: var(--primary-700);
+  background: var(--primary-50);
+}
+
+.portal-layout__user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.portal-layout__hospital-badge {
+  white-space: nowrap;
+}
+
+.portal-layout__logout {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  color: var(--neutral-400);
+  transition: all var(--transition-fast);
+}
+
+.portal-layout__logout:hover {
+  background: var(--error-50);
+  color: var(--error-500);
+}
+
+.portal-layout__logout svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Main */
+.portal-layout__main {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--space-8);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .portal-layout__header-content {
+    flex-wrap: wrap;
+    gap: var(--space-4);
+  }
+
+  .portal-layout__nav {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .portal-layout__main {
+    padding: var(--space-4);
+  }
+}

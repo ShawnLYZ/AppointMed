@@ -1,0 +1,133 @@
+.select-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.select__label {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--neutral-700);
+}
+
+.select {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: white;
+  border: 1.5px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.select:hover:not(.select--disabled) {
+  border-color: var(--neutral-300);
+}
+
+.select--open {
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px var(--primary-100);
+}
+
+.select--error {
+  border-color: var(--error-500);
+}
+
+.select--disabled {
+  background: var(--neutral-100);
+  cursor: not-allowed;
+}
+
+.select__value {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select__selected {
+  color: var(--neutral-800);
+}
+
+.select__placeholder {
+  color: var(--neutral-400);
+}
+
+.select__icon {
+  display: flex;
+  align-items: center;
+  color: var(--neutral-400);
+  transition: transform var(--transition-base);
+}
+
+.select--open .select__icon {
+  transform: rotate(180deg);
+}
+
+.select__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.select__dropdown {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: var(--z-dropdown);
+  animation: slideDown var(--transition-fast) ease-out;
+}
+
+.select__option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.select__option:hover {
+  background: var(--neutral-50);
+}
+
+.select__option--selected {
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.select__option-icon {
+  display: flex;
+  color: var(--neutral-400);
+}
+
+.select__option-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.select__option-label {
+  font-size: var(--text-base);
+}
+
+.select__option-desc {
+  font-size: var(--text-sm);
+  color: var(--neutral-500);
+  margin-left: auto;
+}
+
+.select__error {
+  font-size: var(--text-sm);
+  color: var(--error-500);
+}

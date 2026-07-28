@@ -1,0 +1,136 @@
+.input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.input__label {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--neutral-700);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.input__required {
+  color: var(--error-500);
+  font-weight: 600;
+}
+
+.input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: white;
+  border: 1.5px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
+  overflow: hidden;
+}
+
+.input-container:hover:not(.input-container--disabled) {
+  border-color: var(--neutral-300);
+}
+
+.input-container--focused {
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px var(--primary-100);
+}
+
+.input-container--error {
+  border-color: var(--error-500);
+}
+
+.input-container--error.input-container--focused {
+  box-shadow: 0 0 0 3px var(--error-50);
+}
+
+.input-container--disabled {
+  background: var(--neutral-100);
+  cursor: not-allowed;
+}
+
+.input__field {
+  flex: 1;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-base);
+  color: var(--neutral-800);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.input__field::placeholder {
+  color: var(--neutral-400);
+}
+
+.input__field:disabled {
+  color: var(--neutral-400);
+  cursor: not-allowed;
+}
+
+.input__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--neutral-400);
+  padding: var(--space-3);
+}
+
+.input__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.input__icon--left {
+  padding-right: 0;
+}
+
+.input__icon--right {
+  padding-left: 0;
+}
+
+.input__helper {
+  font-size: var(--text-sm);
+  color: var(--neutral-500);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.input__helper--error {
+  color: var(--error-500);
+}
+
+/* Textarea variant */
+.input-container--textarea .input__field {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* Select styling */
+.input-container--select {
+  cursor: pointer;
+}
+
+.input-container--select .input__field {
+  cursor: pointer;
+  appearance: none;
+  padding-right: var(--space-10);
+}
+
+.input-container--select::after {
+  content: '';
+  position: absolute;
+  right: var(--space-4);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid var(--neutral-400);
+  pointer-events: none;
+}

@@ -1,0 +1,8 @@
+.logo {
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
+  /* Matches the 19% corner rounding already baked into the artwork, so this
+     is a no-op on the image itself and only matters if it ever fails to load. */
+  border-radius: 19%;
+}

@@ -1,0 +1,628 @@
+.integration {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.integration__intro {
+  margin-bottom: var(--space-2);
+}
+
+.integration__title {
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  color: var(--neutral-900);
+  margin-bottom: var(--space-2);
+}
+
+.integration__subtitle {
+  font-size: var(--text-base);
+  color: var(--neutral-500);
+}
+
+.integration__tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.integration__loading {
+  padding: var(--space-8) 0;
+  text-align: center;
+  color: var(--neutral-400);
+  font-size: var(--text-sm);
+}
+
+/* Banners (stale key after a failed refresh, tester network failure) - `.card` compound
+   so it beats `.card--default`'s border/background at equal specificity regardless of
+   CSS import order, same approach as Dashboard.css's `.dashboard__error.card`. */
+.integration__banner.card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.integration__banner--error.card {
+  background: var(--error-50);
+  border-color: var(--error-500);
+}
+
+.integration__banner-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--error-600);
+  margin-bottom: var(--space-1);
+}
+
+.integration__banner-detail {
+  font-size: var(--text-sm);
+  color: var(--neutral-600);
+}
+
+/* Cards */
+.integration__card-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--neutral-900);
+  margin-bottom: var(--space-2);
+}
+
+.integration__card-desc {
+  font-size: var(--text-sm);
+  color: var(--neutral-500);
+  margin-bottom: var(--space-6);
+}
+
+.integration__card-desc code {
+  background: var(--neutral-100);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-family: monospace;
+  font-size: var(--text-xs);
+}
+
+.integration__doc-section {
+  margin-top: var(--space-6);
+}
+
+/* API Key */
+.apikey__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+}
+
+.apikey__title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--neutral-900);
+  margin-bottom: var(--space-2);
+}
+
+.apikey__desc {
+  font-size: var(--text-sm);
+  color: var(--neutral-500);
+}
+
+.apikey__key-display {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--neutral-50);
+  border-radius: var(--radius-xl);
+  margin-bottom: var(--space-6);
+}
+
+.apikey__key {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+}
+
+.apikey__key-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-100);
+  border-radius: var(--radius-lg);
+  color: var(--primary-600);
+  flex-shrink: 0;
+}
+
+.apikey__key-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.apikey__key-value {
+  font-family: monospace;
+  font-size: var(--text-sm);
+  color: var(--neutral-700);
+  background: transparent;
+  border: none;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.apikey__actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.apikey__meta {
+  display: flex;
+  gap: var(--space-8);
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--neutral-200);
+}
+
+.apikey__meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.apikey__meta-label {
+  font-size: var(--text-xs);
+  color: var(--neutral-500);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.apikey__meta-value {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--neutral-800);
+}
+
+.apikey__danger {
+  padding: var(--space-5);
+  background: var(--error-50);
+  border-radius: var(--radius-xl);
+  /* --error-200/700 aren't defined in variables.css (only 50/500/600 exist) - this was
+     already silently falling back to no color pre-Task-5. Using the same tokens the
+     banners below use for the same error-red intent. */
+  border: 1px solid var(--error-500);
+}
+
+.apikey__danger h4 {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--error-600);
+  margin-bottom: var(--space-2);
+}
+
+.apikey__danger p {
+  font-size: var(--text-sm);
+  color: var(--error-600);
+  margin-bottom: var(--space-4);
+}
+
+.apikey__modal-text {
+  font-size: var(--text-sm);
+  color: var(--neutral-600);
+  margin-bottom: var(--space-5);
+}
+
+.integration__modal-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* Tips */
+.integration__tips {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.integration__tips li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--neutral-700);
+}
+
+.integration__tip-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--success-500);
+  flex-shrink: 0;
+}
+
+.integration__tip-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Flow Diagram */
+.integration__flow-diagram {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  background: var(--neutral-50);
+  border-radius: var(--radius-xl);
+  overflow-x: auto;
+}
+
+.integration__flow-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-6);
+  background: white;
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  min-width: 140px;
+  text-align: center;
+}
+
+.integration__flow-box--primary {
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
+  border-color: var(--primary-500);
+}
+
+.integration__flow-box--primary .integration__flow-label,
+.integration__flow-box--primary .integration__flow-endpoints {
+  color: white;
+}
+
+.integration__flow-label {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--neutral-800);
+}
+
+.integration__flow-endpoints {
+  font-size: var(--text-xs);
+  color: var(--neutral-500);
+}
+
+.integration__flow-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--neutral-400);
+  font-size: var(--text-2xl);
+  line-height: 1;
+}
+
+.integration__flow-caption {
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--neutral-500);
+}
+
+/* Endpoints */
+.integration__endpoints {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.integration__endpoint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--neutral-50);
+  border-radius: var(--radius-lg);
+}
+
+.integration__method {
+  padding: var(--space-1) var(--space-3);
+  font-family: monospace;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+}
+
+.integration__method--get {
+  background: var(--success-50);
+  color: var(--success-600);
+}
+
+.integration__method--post {
+  background: var(--info-50);
+  color: var(--info-500);
+}
+
+.integration__method--put {
+  background: var(--warning-50);
+  color: var(--warning-500);
+}
+
+.integration__method--delete {
+  background: var(--error-50);
+  color: var(--error-500);
+}
+
+.integration__path {
+  font-family: monospace;
+  font-size: var(--text-sm);
+  color: var(--neutral-700);
+}
+
+.integration__endpoint-desc {
+  flex: 1;
+  font-size: var(--text-sm);
+  color: var(--neutral-500);
+  text-align: right;
+}
+
+/* Endpoint reference (request/response examples) */
+.integration__examples {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.integration__example {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--neutral-200);
+}
+
+.integration__example:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.integration__example-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--neutral-500);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.integration__example-errors {
+  font-size: var(--text-xs);
+  color: var(--neutral-500);
+}
+
+/* Code Block */
+.integration__code-tabs {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+
+.integration__code-tab {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--neutral-500);
+  background: transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.integration__code-tab:hover {
+  color: var(--neutral-700);
+  background: var(--neutral-100);
+}
+
+.integration__code-tab--active {
+  color: var(--primary-700);
+  background: var(--primary-50);
+}
+
+.integration__code-block {
+  position: relative;
+  background: var(--neutral-900);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  overflow-x: auto;
+}
+
+.integration__code-block pre {
+  margin: 0;
+}
+
+.integration__code-block code {
+  font-family: 'Fira Code', monospace;
+  font-size: var(--text-sm);
+  color: var(--neutral-100);
+  line-height: 1.6;
+}
+
+.integration__code-block button {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+}
+
+/* Tester */
+.integration__tester {
+  margin-bottom: var(--space-6);
+}
+
+.tester__config {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.tester__label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--neutral-700);
+  margin-bottom: var(--space-2);
+}
+
+.tester__endpoint-select {
+  display: flex;
+  flex-direction: column;
+}
+
+.tester__select {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-base);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  background: white;
+  color: var(--neutral-800);
+}
+
+.tester__params {
+  display: flex;
+  flex-direction: column;
+}
+
+.tester__param-input {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  background: white;
+}
+
+.tester__param-input:focus {
+  outline: none;
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px var(--primary-100);
+}
+
+.tester__warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--warning-50);
+  border: 1px solid var(--warning-500);
+  border-radius: var(--radius-lg);
+  color: var(--neutral-800);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.tester__warning svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--warning-500);
+}
+
+.tester__warning strong {
+  color: var(--neutral-900);
+}
+
+/* Response */
+.integration__response {
+  margin-bottom: var(--space-6);
+}
+
+.tester__response-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.tester__response-header h4 {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--neutral-800);
+}
+
+.tester__response-request {
+  font-size: var(--text-xs);
+  color: var(--neutral-500);
+  margin-bottom: var(--space-3);
+}
+
+.tester__response-request code {
+  font-family: monospace;
+  color: var(--neutral-700);
+}
+
+/* Toast */
+.integration__toast {
+  position: fixed;
+  right: var(--space-6);
+  bottom: var(--space-6);
+  max-width: 380px;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: white;
+  box-shadow: var(--shadow-xl);
+  border-left: 4px solid;
+  font-size: var(--text-sm);
+  color: var(--neutral-700);
+  z-index: var(--z-tooltip);
+  animation: integration-toast-in var(--transition-slow) ease-out;
+}
+
+.integration__toast--success { border-color: var(--success-500); }
+.integration__toast--error { border-color: var(--error-500); }
+
+@keyframes integration-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .integration__flow-diagram {
+    flex-direction: column;
+  }
+
+  .integration__flow-arrow {
+    transform: rotate(90deg);
+  }
+
+  .apikey__meta {
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .apikey__key-display {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .apikey__actions {
+    width: 100%;
+  }
+
+  .integration__endpoint {
+    flex-wrap: wrap;
+  }
+
+  .integration__endpoint-desc {
+    width: 100%;
+    text-align: left;
+    margin-top: var(--space-2);
+  }
+
+  .integration__toast {
+    left: var(--space-4);
+    right: var(--space-4);
+    bottom: var(--space-4);
+    max-width: none;
+  }
+}
