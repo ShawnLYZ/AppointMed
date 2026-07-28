@@ -8,6 +8,15 @@
     <strong>Describe how you feel in your own words — get a real, hospital-confirmed appointment at the end.</strong>
 </p>
 
+<p align="center">
+    <img src="https://img.shields.io/badge/Flutter-02569B?style=flat&logo=flutter&logoColor=white" alt="Flutter"/>
+    <img src="https://img.shields.io/badge/Dart-0175C2?style=flat&logo=dart&logoColor=white" alt="Dart"/>
+    <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=flat&logo=supabase&logoColor=white" alt="Supabase"/>
+    <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white" alt="PostgreSQL"/>
+    <img src="https://img.shields.io/badge/Ollama-828282?style=flat&logo=ollama&logoColor=white" alt="Ollama"/>
+    <img src="https://img.shields.io/badge/Gemma4:12b-8E75B2?style=flat&logo=googlegemini&logoColor=white" alt="Gemini"/>
+</p>
+
 ---
 
 ## Table of contents
@@ -1173,7 +1182,6 @@ surface, not a live integration with a hospital's information system.
 | `appointmed_mobile/` | The Flutter patient app — chat, appointments, notifications, profile |
 | `supabase/` | Database migrations, the demo seed data, and the row-security test suite |
 | `scripts/` | Setup and operations commands: connection check, migrate, seed, verify, and the one-command launcher |
-| `docs/` | Deeper design and market notes that sit behind this document |
 
 ### A note on credentials
 
