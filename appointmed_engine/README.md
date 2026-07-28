@@ -143,3 +143,301 @@ For a demo: drive a consult through `/consult/start` → a few `/message` turns
 proof that the "AI" is a sequence of real, logged decisions and tool calls
 rather than a black box, including any `fallback`/`error` entries if Ollama or
 the adapter degrades mid-run.
+
+---
+
+# Architecture
+
+> Reproduced here are the sections that concern the engine: the system
+> context (§1), the workflow engine itself (§2), the LLM reasoning contract (§3), the engine-side
+> edge cases (§6) and the audit trail (§7). Paths are relative to this directory unless prefixed
+> with `../`.
+
+## System overview
+
+AppointMed turns a fragmented, manual healthcare errand — *describe symptoms, work out which
+specialist you need, find a slot you can afford at a hospital you can reach, get the hospital to
+agree* — into a single automated workflow. Five components carry it. A **Flutter patient app**
+(`../appointmed_mobile/`) is the patient's surface: it talks to the workflow engine for the
+consultation and to Supabase directly for auth, row-level-security-scoped reads and realtime
+appointment updates. A **Node/TypeScript workflow engine** (this directory, port 8080) is the
+orchestrator and the only component that reasons: it runs a persisted seven-node state machine, and
+at every node that requires a judgement it calls a **local LLM served by Ollama** (port 11434,
+`gemma4:12b` by default) for a JSON-Schema-constrained decision, then dispatches deterministically on
+the result. A **simulated hospital adapter** (`../appointmed_hospital_adapter/`, port 8090) stands in
+for a real hospital information system, exposing a per-hospital API-key REST surface for slot search,
+booking and manager decisions, and calling back into the engine when a hospital decides. A **React
+hospital portal** (`../appointmed_website/`, port 5173) puts a human in the loop: managers review the
+AI's case summary and priority, then confirm, decline or reschedule — over the exact same public
+adapter API a real hospital integration would use. **Hosted Supabase** (Postgres + Auth + Storage +
+Realtime) is the shared substrate; clients read it under least-privilege RLS and can write almost
+nothing (two narrow column grants), while the two Node services hold the privileged credentials.
+
+```mermaid
+flowchart LR
+  P[Patient app - Flutter] -->|consult API :8080| E[Workflow Engine - Node/TS]
+  P -->|auth + RLS reads + realtime| S[(Supabase)]
+  W[Hospital portal - React] -->|auth + RLS reads + realtime| S
+  W -->|subscribe + manager routes :8080| E
+  W -->|manager decisions x-api-key| A[Hospital Adapter - Node/TS :8090]
+  E -->|structured decisions JSON-schema| O[Ollama gemma4:12b local]
+  E -->|/slots /appointment/confirm per-hospital key| A
+  E -->|service-role writes + run log| S
+  A -->|POST /postback| E
+  A -->|direct Postgres writes| S
+```
+
+The patient app and the portal never call each other, and neither one contains workflow logic. Every
+decision, every external call and every state transition happens inside the engine and is written to
+an append-only step log (see **Auditability** below).
+
+## The workflow engine (rubric core)
+
+A consultation is a **run**: a row in `workflow_runs` holding a `current_node`, a `status` and a JSON
+`state` blob. The engine keeps nothing in memory between requests — every turn loads the run from
+Postgres, advances it, and saves it back. That is what makes runs resumable and what makes the step
+log complete.
+
+`Node` (`src/workflow/types.ts:1`) has exactly seven values:
+`intake | triage | match | book_request | hospital_review | postback | done`.
+`RunStatus` has five: `active | waiting_hospital | completed | failed | escalated`.
+
+Two precise points that the diagram alone would hide:
+
+- **Re-match is a transition, not a node.** A declined booking, or a patient choosing to re-match,
+  sends `current_node` back to `match` with the offending hospital appended to
+  `state.excludeHospitalIds`.
+- **`escalated` is a status, not a node.** When intake detects a red flag the run's status becomes
+  `escalated` while `current_node` stays `intake`; `advanceWithMessage` then short-circuits every
+  later message to fixed emergency guidance without calling the model at all
+  (`src/workflow/machine.ts:9-12`).
+
+```mermaid
+stateDiagram-v2
+  [*] --> intake
+  intake --> intake: fields still missing - targeted follow-up
+  intake --> sealed: red flag detected - 999 guidance
+  intake --> triage: all six symptom fields collected
+  triage --> match: verdict = specialty + urgency
+  match --> match: prefs incomplete, or zero slots - relax up to 3 constraints
+  match --> book_request: patient selects a slot
+  book_request --> match: adapter confirm failed - options may be stale
+  book_request --> hospital_review: pending appointment created
+  hospital_review --> postback: hospital confirms, declines or reschedules
+  hospital_review --> done: patient cancels, or accepts a proposed time
+  hospital_review --> match: patient re-matches - hospital excluded
+  postback --> done: confirmed or cancelled
+  postback --> match: declined - re-match, hospital excluded
+  done --> [*]
+  sealed --> [*]
+  note right of sealed
+    Not a node. status becomes escalated
+    while current_node stays intake.
+  end note
+```
+
+| Node | 🧠 LLM decision schema | Tools called | Edge handling | Fallback if the model is unreachable |
+|---|---|---|---|---|
+| `intake` | `intakeSchema` → `{reply, complete, redFlag, redFlagReason?, fields{mainComplaint, duration, severity, associatedSymptoms, medicalHistory, currentMedications}}` | `storeMedicalFile` (Supabase Storage, `medical-files`), `extractPdfText` (pdf-parse, first 4 000 chars); transcript read/append | `complete:false` loops with a targeted follow-up; vague or contradictory input is told to clarify rather than guess; `redFlag:true` seals the run; uploads outside intake → `409 uploads_only_during_intake`, on a sealed run → `409 consultation_escalated` | Apologetic hold reply, run stays `active` at `intake`, `fallback` step logged. **No fields are extracted**, so the run can never progress. |
+| `triage` | `triageSchema` → `{specialty (enum of 9), urgency (asap\|week\|month\|routine), explanation, redFlags[]}` | none | Runs in the same turn intake completes, so the patient sees one continuous reply: verdict + disclaimer + first booking question | Hard-coded `General Practice` / `routine` verdict, `fallback` step logged. Safe, but no specialty or urgency intelligence remains. |
+| `match` | `prefsSchema` → `{reply, complete, prefs{budget, preferredHospital, preferredTime}}`, then `relaxSchema` → `{relax: time\|hospital\|budget, explanation}` when a search comes back empty | `adapter.getSlots` once per candidate hospital; Postgres picks the candidates — every hospital with an active API key, minus `excludeHospitalIds`, narrowed by a name match when the patient named a preferred hospital | Incomplete prefs keep asking; zero results trigger up to 3 LLM-chosen relaxations (max 4 search rounds) before a friendly give-up that leaves the run alive; an adapter error yields a retry-later reply and parks the run at `matchPhase:'ready'`; the relaxation budget resets on every new matching cycle | Prefs: apologetic hold reply — preferences are never extracted, so no search ever runs. Relax: fixed order `time → hospital → budget`. |
+| `book_request` | `summarySchema` → `{summary, priority: low\|medium\|high}` (the ≤ 80-word cap is prompt-side, not in the schema) | `adapter.confirm` (per-hospital key) | Guarded against double-tap: a run already past `match` returns `409 already_booked`; an unknown or un-presented slot returns `400 unknown_slot_option`; a failed confirm (e.g. the slot was just taken) returns the run to `match` with `matchPhase:'ready'` so fresh options can be fetched | Templated summary assembled from the stored symptom fields, priority derived from urgency by a static map (`asap→high, week→medium, else low`). |
+| `hospital_review` | none | none — the run is parked | Any further patient message returns "your booking request is with the hospital team"; the run holds `status:'waiting_hospital'` | n/a — this node needs no model. |
+| `postback` | none | `adapter.cancel` (best-effort, on patient cancel or on re-matching a proposed time) | The `appointments` UPDATE is scoped by `external_appointment_id` **and** `hospital_id` **and** a non-terminal status, so a wrong-hospital, unknown or replayed postback is a `404` that changes nothing; a patient's local cancel still succeeds if the hospital is unreachable | n/a — deterministic. |
+| `done` | none | none | Terminal; further messages get a "start a new consultation" reply | n/a |
+
+**`book_request` is a transient label.** `bookSelectedSlot` requires the run to still be at `match`,
+logs its steps under the node name `book_request`, then writes `hospital_review` (on success) or
+`match` (on failure). `workflow_runs.current_node` therefore never actually rests at `book_request`,
+even though the column's check constraint permits it — the value exists to group the booking step's
+audit rows.
+
+## LLM reasoning contract
+
+See **Model configuration** above for the env-var surface; this section is the contract itself.
+
+**Structured intent, deterministic dispatch.** The model never executes anything. Each reasoning
+node builds a message list, hands `OllamaHttpClient.structured()` a JSON Schema, and gets back a
+typed record; the engine's own TypeScript then decides what happens. Concretely, the client POSTs to
+`{OLLAMA_URL}/api/chat` with `{model, messages, stream: false, format: <schema>, options: {temperature: 0.2}}`
+and `JSON.parse`s `message.content`. Ollama's `format` field constrains decoding to the schema, so
+`specialty` can only ever be one of the nine allowed strings and `urgency` one of four — the engine
+does not have to defend against a hallucinated specialty, and `additionalProperties: false` keeps
+stray keys out.
+
+**Per-stage models.** `Stage` is `intake | triage | prefs | relax | summary`. All five default to
+`MODEL_DEFAULT` (`gemma4:12b`) and each is independently overridable —
+`MODEL_INTAKE`, `MODEL_TRIAGE`, `MODEL_PREFS`, `MODEL_RELAX`, `MODEL_SUMMARY` — so a heavier model
+can be pointed at triage alone without slowing intake. `MODEL_FALLBACK` (`qwen3.5:9b`) is the
+second-choice model in the retry ladder.
+
+**Bounded retry ladder.** For each of `[stage model, fallback model]`, two attempts, i.e. at most
+four HTTP calls, each under a 90-second `AbortSignal.timeout`. A non-200, a network failure *and* an
+unparseable body all count as failures. Only when all four fail does the client raise
+`OllamaUnavailableError` — the single exception type every node catches to enter its documented
+fallback. Anything else propagates and becomes a clean `500 {error:"internal_error"}`.
+
+**Why not native function-calling.** The models involved do advertise a `tools` capability, so this
+is a deliberate choice rather than a limitation. Three reasons, all visible in the code: (1) every
+decision here is a *record the engine persists and later replays* — the intake fields, the verdict,
+the preferences — not a one-shot side effect, and constrained decoding gives that record a schema the
+database column checks already agree with; (2) keeping dispatch in TypeScript means the whole
+workflow is testable against a stub that simply returns plain objects (`test/stub-ollama.ts`), which
+is how this suite runs deterministically with no model present; (3) any Ollama model supporting
+`format` is a drop-in, with no tool-calling fine-tune required.
+
+**What breaks when the local LLM is removed.** Each node degrades to something *safe* — never a
+crash, never a wrong booking — but the coordination itself disappears:
+
+| Stage | With the local LLM | Without it |
+|---|---|---|
+| intake | Extracts six symptom fields from free text, asks targeted follow-ups, flags emergencies | Nothing is extracted; the run repeats a hold message forever and **never leaves `intake`** |
+| triage | Chooses one of nine specialties and an urgency that sets the search window (2 days for `asap`, 7 otherwise) | Everyone is sent to General Practice, routine — no triage remains |
+| match (prefs) | Reads budget, hospital and time-of-day out of conversational text | Preferences are never captured, so no slot search is ever issued |
+| match (relax) | Picks which constraint to loosen given the situation, and explains it | Fixed `time → hospital → budget` order with a generic sentence |
+| book_request | Writes the case summary and priority the hospital manager triages by | Template string; priority from a static urgency map |
+
+This is directly demonstrable, and was verified for the architecture doc: with `OLLAMA_URL` pointed at
+a dead port, a two-message consultation produced only `fallback` steps, captured **0 of 6** symptom
+fields, and left the run sitting at `intake`/`active`. No triage, no matching, no booking — the
+system reduces to a stateless apology loop.
+
+## Edge cases & failure handling
+
+Every row cites the test that proves it.
+
+| Situation | Behaviour | Proven by |
+|---|---|---|
+| Ambiguous or contradictory symptom description | The intake prompt requires a clarifying question rather than a guess; `complete:false` keeps the loop open and merges whatever *was* learned | `test/intake.test.ts` — *"incomplete intake asks a follow-up and merges fields"* (asserts the follow-up text and that `state.symptoms.mainComplaint` persisted) |
+| Missing booking preferences | Match keeps asking until budget, hospital and time are all known; no search is issued early | `test/match.test.ts` — *"incomplete prefs keep asking"* |
+| Emergency red flag | Run status flips to `escalated`, the reply carries 999 guidance, and the run is **sealed**: later messages and uploads are answered deterministically with no model call at all | `test/intake.test.ts` — *"red flag escalates deterministically"* and *"an escalated run seals further messages to a fixed emergency reply (no LLM call)"*; `test/upload.test.ts` — *"an escalated run seals the upload route: 409, nothing stored, no LLM call"* |
+| No slots match the constraints | The model picks one constraint to relax and explains it; up to 3 relaxations / 4 search rounds, then a friendly give-up that leaves the run alive and re-runnable. The budget resets per matching cycle | `test/match.test.ts` — *"empty result triggers LLM-chosen relaxation (time) and a wider re-query with explanation"*, *"exhausted relaxations end with a friendly no-slots reply, run stays in match"*, *"relaxation budget resets on re-entry: a second matching cycle on the same run gets its own 3 attempts"* |
+| Preferences are honoured, not discarded | Budget, hospital and time-of-day all filter the presented options | `test/match.test.ts` — *"prefs are used: budget + hospital + morning filter the options"* |
+| Hospital declines the booking | Run returns to `match`, the declining hospital is added to `excludeHospitalIds`, and the next search draws only from the remainder | `test/postback.test.ts` — *"declined postback re-enters match with the hospital excluded"*; `test/respond.test.ts` — *"re\_match after a declined postback returns fresh slotOptions from the remaining hospital only"* |
+| Hospital proposes a different time | The patient can accept (appointment confirmed, run completes) or re-match (the proposal is cancelled at the hospital first, then re-matching resumes) | `test/respond.test.ts` — *"accept\_reschedule after a rescheduled postback confirms the proposed time and completes the run"*, *"re\_match after a reschedule\_proposed appointment cancels it via the adapter first"* |
+| Local LLM unreachable | Bounded retry (2 models × 2 attempts) then `OllamaUnavailableError`; each node logs a `fallback` step and returns its safe degradation. The run is never lost | `test/ollama-client.test.ts` — *"retries same model on invalid JSON, then falls back to the fallback model"* and *"throws OllamaUnavailableError after all attempts fail"*; `test/intake.test.ts` — *"ollama outage during intake degrades gracefully, run stays alive"*; `test/triage.test.ts` — *"triage model failure falls back to General Practice / routine and logs a fallback step"* |
+| Adapter unreachable during slot search | An `error` step is logged and the patient gets a retry-later reply; the run parks at `matchPhase:'ready'` so the next message re-searches | `test/match.test.ts` — *"adapter outage during search is a logged error with a retry-later reply, not a dead end"* |
+| Booking fails at the hospital (slot just taken) | The run drops back to `match` with a "send any message and I'll find fresh options" reply; the hospital side returns `409 slot_taken` under a row lock | `test/booking.test.ts` — *"adapter failure on confirm keeps the run alive with a retry reply"*; `../appointmed_hospital_adapter/test/booking.test.ts` — *"double-booking the same slot returns 409 slot\_taken"* |
+| Duplicate / replayed client actions | A second `select-slot` on a booked run is `409 already_booked` with no second adapter call; re-matching a stale declined appointment while the run already holds a live one is `409 run_has_live_appointment` | `test/booking.test.ts` — *"a second select-slot on a booked run is rejected (no duplicate confirm or appointment)"*; `test/respond.test.ts` — *"re\_match on a stale declined appointment is rejected once the run already has a live appointment (double-booking guard)"* |
+| Hospital unreachable when a patient cancels | `adapter.cancel` is best-effort: the failure is logged as an `error` step and the patient's cancellation still succeeds locally | `test/respond.test.ts` — *"cancel is best-effort: an adapter outage does not block the patient cancel"* |
+| Malformed or hostile input | Rejected before it can reach a SQL cast or act as a wildcard | `test/postback.test.ts` — *"empty externalAppointmentId is rejected, not treated as a wildcard match"*, *"invalid action value → 400 invalid\_postback, appointment unchanged"* |
+| Cross-tenant access attempt | Always a `404`, never another party's row | `test/respond.test.ts` — *"responding to a foreign patient's appointment returns 404, never someone else's row"*; `test/intake.test.ts` — *"foreign run id → 404"*; `test/postback.test.ts` — *"postback with the wrong hospitalId 404s and leaves the appointment unchanged"* |
+| Unexpected internal error | A single clean `500 {error:"internal_error"}` — never a stack trace or driver text | `test/error-handler.test.ts` — *"an uncaught route error yields a clean 500 { error: internal\_error }, never Fastify's default leaking shape"* |
+
+**One honest gap.** There is *no* retry around the database. Postgres is treated as
+must-be-available: an outage surfaces through the error handler as a clean `500`, and because run
+state is only persisted after a successful turn, nothing is corrupted — but the turn is simply lost
+and the patient retries. Retry/circuit-breaking exists for the model (4 attempts) and for postback
+delivery (3 attempts), not for the datastore.
+
+## Auditability
+
+Two tables carry the audit trail. The `kind` values are listed under **Run-log / audit trail** above.
+
+`workflow_runs` — `id`, `user_id`, `status` (5-value check), `current_node` (7-value check),
+`state jsonb`, `created_at`, `updated_at` (trigger-maintained), indexed on `(user_id, created_at desc)`.
+`state` holds the live symptom fields, attachments, preferences, verdict, presented options,
+`excludeHospitalIds` and `relaxations`.
+
+`workflow_steps` — `id`, `run_id` (FK, `on delete cascade`), `seq`, `node`, `kind ∈ {llm_decision,
+tool_call, transition, error, fallback}`, `input jsonb`, `output jsonb`, `model`, `latency_ms`,
+`created_at`, with `unique (run_id, seq)` and an index on `(run_id, seq)`. `logStep` allocates `seq`
+as `coalesce(max(seq),0)+1` inside a single `insert … select`; the unique constraint is the backstop
+if two writes for one run ever raced. Model name and latency are recorded for `llm_decision` steps
+and left null elsewhere, which makes the LLM's share of a run measurable.
+
+**A real run.** The log below is from run `5dc0bb5d-44a0-4ab6-9739-9a3aeb1eff49`, driven end-to-end on
+2026-07-26 against the live database with the real local model (`gemma4:e4b` on Ollama) and the real
+adapter on :8090, and completed by a genuine manager `confirm` sent to
+`POST /appointment/decision`. All 32 steps are listed; the *Detail* column paraphrases the stored
+`input`/`output` JSON for width, and three rows are reproduced verbatim underneath.
+
+| seq | node | kind | model | ms | Detail |
+|---|---|---|---|---|---|
+| 1 | intake | llm_decision | gemma4:e4b | 46 206 | Extracted `mainComplaint` only; `complete:false`; asked how long it had been going on |
+| 2 | intake | llm_decision | gemma4:e4b | 6 495 | Added `duration:"About two weeks"`, `severity:6`; asked about associated symptoms |
+| 3 | intake | llm_decision | gemma4:e4b | 8 993 | Added history, associated symptoms, medications; `complete:true` |
+| 4 | intake | transition | — | — | `to: triage`, carrying all six fields |
+| 5 | triage | llm_decision | gemma4:e4b | 12 262 | `specialty:"Cardiology"`, `urgency:"asap"`, 1 red flag |
+| 6 | triage | transition | — | — | `to: match` |
+| 7 | match | llm_decision | gemma4:e4b | 5 785 | `prefs {budget:250, preferredTime:"morning", preferredHospital:null}`; `complete:true` |
+| 8 | match | transition | — | — | `prefsComplete:true` |
+| 9–17 | match | tool_call ×9 | — | — | `adapter.getSlots` fanned out over all 9 subscribed hospitals; counts `0, 12, 12, 12, 12, 0, 20, 12, 0` |
+| 18 | match | llm_decision | gemma4:e4b | 5 733 | Patient messaged again while options were shown → prefs re-confirmed |
+| 19 | match | transition | — | — | `prefsComplete:true` (second matching cycle) |
+| 20–28 | match | tool_call ×9 | — | — | Second `adapter.getSlots` fan-out, same 9 hospitals |
+| 29 | book_request | tool_call | — | — | `adapter.confirm` → `externalAppointmentId: ext_de4780d577891965` |
+| 30 | book_request | llm_decision | gemma4:e4b | 11 535 | Case summary for the manager, `priority:"high"` |
+| 31 | book_request | transition | — | — | `to: hospital_review`, appointment `1adc1a5e-…` |
+| 32 | postback | transition | — | — | `action:"confirmed"` → `appointmentStatus:"confirmed"` |
+
+Seven LLM calls totalled ≈ 97 s, of which the first — a cold model load — was 46 s; every later call
+ran in 5.7–12.3 s. The run finished at `status:"completed"`, `current_node:"done"`, with the
+appointment row at `status:"confirmed"`, `status_source:"hospital_postback"`,
+`suggested_priority:"high"`, `created_via_ai:true`.
+
+Three rows verbatim, exactly as stored (only the surrounding array is elided):
+
+```json
+{
+  "seq": 5, "node": "triage", "kind": "llm_decision",
+  "model": "gemma4:e4b", "latency_ms": 12262,
+  "input": {
+    "duration": "About two weeks ago", "severity": 6,
+    "mainComplaint": "Tight/heavy feeling in the chest when climbing stairs",
+    "medicalHistory": "High blood pressure", "associatedSymptoms": "Breathlessness",
+    "currentMedications": "Amlodipine"
+  },
+  "output": {
+    "urgency": "asap",
+    "redFlags": ["Chest tightness/breathlessness on exertion (Dyspnea on Exertion)"],
+    "specialty": "Cardiology",
+    "explanation": "Your chest tightness and breathlessness when exerting yourself require evaluation to determine if they are related to your heart function or blood pressure management. We need to perform tests to rule out underlying cardiac issues like stable angina or heart failure."
+  },
+  "created_at": "2026-07-26T08:52:02.749Z"
+}
+```
+
+```json
+{
+  "seq": 15, "node": "match", "kind": "tool_call",
+  "model": null, "latency_ms": null,
+  "input": {
+    "to": "2026-07-28T08:52:04.980Z", "from": "2026-07-26T08:52:04.980Z",
+    "tool": "adapter.getSlots", "hospital": "RLS Test Hospital A",
+    "maxPrice": 250, "specialty": "Cardiology"
+  },
+  "output": { "count": 20 },
+  "created_at": "2026-07-26T08:52:12.121Z"
+}
+```
+
+```json
+{
+  "seq": 30, "node": "book_request", "kind": "llm_decision",
+  "model": "gemma4:e4b", "latency_ms": 11535,
+  "input": { "for": "case_summary" },
+  "output": {
+    "summary": "Patient reports chest tightness and breathlessness on exertion for two weeks. Relevant history includes hypertension. The AI flags dyspnea on exertion as a red flag, recommending urgent Cardiology evaluation to rule out underlying cardiac issues like stable angina or heart failure.",
+    "priority": "high"
+  },
+  "created_at": "2026-07-26T08:52:36.445Z"
+}
+```
+
+Two things this log makes visible that are worth naming rather than hiding. The `from`/`to` window in
+seq 15 is **two days wide**, not seven — because triage returned `urgency:"asap"`, and the search
+window is derived from urgency. And the hospital list includes fixture rows such as
+`RLS Test Hospital A` and `Engine Subtest Hospital …`, left over from earlier test runs against this
+shared demo database; they hold active API keys, so they take part in matching exactly like a real
+subscribed hospital would.
+
+**Reading the log back: `GET /runs/:runId/steps`.** This route is registered *inside* the engine's
+bearer-auth scope, and additionally checks `run.userId === req.user.id`, returning `404 run_not_found`
+otherwise. It is therefore **not** an anonymous endpoint — reaching it needs a patient's Supabase
+access token, and it only ever returns that patient's own runs:
+
+```bash
+curl -H "Authorization: Bearer <patient supabase access token>" \
+     http://localhost:8080/runs/<runId>/steps
+```

@@ -165,22 +165,6 @@ stateDiagram-v2
   end note
 ```
 
-| Node | 🧠 LLM decision schema | Tools called | Edge handling | Fallback if the model is unreachable |
-|---|---|---|---|---|
-| `intake` | `intakeSchema` → `{reply, complete, redFlag, redFlagReason?, fields{mainComplaint, duration, severity, associatedSymptoms, medicalHistory, currentMedications}}` | `storeMedicalFile` (Supabase Storage, `medical-files`), `extractPdfText` (pdf-parse, first 4 000 chars); transcript read/append | `complete:false` loops with a targeted follow-up; vague or contradictory input is told to clarify rather than guess; `redFlag:true` seals the run; uploads outside intake → `409 uploads_only_during_intake`, on a sealed run → `409 consultation_escalated` | Apologetic hold reply, run stays `active` at `intake`, `fallback` step logged. **No fields are extracted**, so the run can never progress. |
-| `triage` | `triageSchema` → `{specialty (enum of 9), urgency (asap\|week\|month\|routine), explanation, redFlags[]}` | none | Runs in the same turn intake completes, so the patient sees one continuous reply: verdict + disclaimer + first booking question | Hard-coded `General Practice` / `routine` verdict, `fallback` step logged. Safe, but no specialty or urgency intelligence remains. |
-| `match` | `prefsSchema` → `{reply, complete, prefs{budget, preferredHospital, preferredTime}}`, then `relaxSchema` → `{relax: time\|hospital\|budget, explanation}` when a search comes back empty | `adapter.getSlots` once per candidate hospital; Postgres picks the candidates — every hospital with an active API key, minus `excludeHospitalIds`, narrowed by a name match when the patient named a preferred hospital | Incomplete prefs keep asking; zero results trigger up to 3 LLM-chosen relaxations (max 4 search rounds) before a friendly give-up that leaves the run alive; an adapter error yields a retry-later reply and parks the run at `matchPhase:'ready'`; the relaxation budget resets on every new matching cycle | Prefs: apologetic hold reply — preferences are never extracted, so no search ever runs. Relax: fixed order `time → hospital → budget`. |
-| `book_request` | `summarySchema` → `{summary, priority: low\|medium\|high}` (the ≤ 80-word cap is prompt-side, not in the schema) | `adapter.confirm` (per-hospital key) | Guarded against double-tap: a run already past `match` returns `409 already_booked`; an unknown or un-presented slot returns `400 unknown_slot_option`; a failed confirm (e.g. the slot was just taken) returns the run to `match` with `matchPhase:'ready'` so fresh options can be fetched | Templated summary assembled from the stored symptom fields, priority derived from urgency by a static map (`asap→high, week→medium, else low`). |
-| `hospital_review` | none | none — the run is parked | Any further patient message returns "your booking request is with the hospital team"; the run holds `status:'waiting_hospital'` | n/a — this node needs no model. |
-| `postback` | none | `adapter.cancel` (best-effort, on patient cancel or on re-matching a proposed time) | The `appointments` UPDATE is scoped by `external_appointment_id` **and** `hospital_id` **and** a non-terminal status, so a wrong-hospital, unknown or replayed postback is a `404` that changes nothing; a patient's local cancel still succeeds if the hospital is unreachable | n/a — deterministic. |
-| `done` | none | none | Terminal; further messages get a "start a new consultation" reply | n/a |
-
-**`book_request` is a transient label.** `bookSelectedSlot` requires the run to still be at `match`,
-logs its steps under the node name `book_request`, then writes `hospital_review` (on success) or
-`match` (on failure). `workflow_runs.current_node` therefore never actually rests at `book_request`,
-even though the column's check constraint permits it — the value exists to group the booking step's
-audit rows.
-
 ---
 
 ## 4. What happens end to end
