@@ -43,9 +43,13 @@
 </div>
 
 ## Website
-| Dashboard | Requests | Patient Report | Integration | Settings |
-|-----------|-------------------|--------------|-------------------|--------------|
-| ![dashboard](assets/Dashboard.png) | ![request](assets/Requests.png) | ![report](assets/Patient_Report.png) | ![integration](assets/Integration.png) | ![setting](assets/Settings.png) |
+| Dashboard | Integration | Settings |
+|-----------|-------------------|--------------|
+| ![dashboard](assets/Dashboard.png) | ![integration](assets/Integration.png) | ![setting](assets/Settings.png) |
+
+| Requests | Patient Report |
+|-------------------|--------------|
+| ![request](assets/Requests.png) | ![report](assets/Patient_Report.png) |
 
 ---
 
