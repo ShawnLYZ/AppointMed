@@ -4,6 +4,7 @@ import { advanceWithMessage } from '../workflow/machine.js';
 import { createRun, getRun, getSteps, getTranscript, appendMessages, logStep, saveRun } from '../workflow/runs.js';
 import { bookSelectedSlot } from '../workflow/nodes/book.js';
 import { storeMedicalFile } from '../tools/files.js';
+import { describeImage, describePdf } from '../tools/attachments.js';
 import { GREETING } from '../llm/prompts.js';
 
 export function registerConsultRoutes(app: FastifyInstance, deps: EngineDeps): void {
@@ -58,19 +59,33 @@ export function registerConsultRoutes(app: FastifyInstance, deps: EngineDeps): v
     if (!isImage && !isPdf) return reply.code(400).send({ error: 'unsupported_file_type' });
 
     const path = await storeMedicalFile(deps.supabase, run.userId, run.id, file.filename, buf, file.mimetype);
-    let turnText: string;
-    if (isImage) {
-      run.state.pendingImages.push(buf.toString('base64'));
-      run.state.attachments.push({ type: 'image', name: file.filename, path });
-      turnText = "I've shared a photo of my condition — please review it.";
-    } else {
-      const extracted = await deps.extractPdfText(buf);
-      run.state.attachments.push({ type: 'pdf', name: file.filename, path, extractedText: extracted });
-      turnText = `I've uploaded a medical document: ${file.filename}. Contents:\n${extracted}`;
-    }
+    // Logged immediately after the store, before the attachment-stage model
+    // call below - the audit log's seq order should read store-then-describe,
+    // matching what the code actually does.
     await logStep(deps.pool, run.id, 'intake', 'tool_call',
       { tool: isImage ? 'storeImage' : 'extractPdf', filename: file.filename }, { path });
+    let turnText: string;
+    if (isImage) {
+      const base64 = buf.toString('base64');
+      const observation = await describeImage(deps, run.id, file.filename, base64);
+      run.state.pendingImages.push(base64);
+      run.state.attachments.push({ type: 'image', name: file.filename, path, observation });
+      turnText = "I've shared a photo of my condition — please review it.";
+    } else {
+      const { observation, extractedText } = await describePdf(deps, run.id, file.filename, buf);
+      run.state.attachments.push({ type: 'pdf', name: file.filename, path, extractedText, observation });
+      // A scanned/corrupt PDF has no extractedText. Falling back to the
+      // "Contents:\n" phrasing here would end mid-sentence with nothing after
+      // the colon and no signal that the document was unreadable, so the
+      // intake model could reply as though it had read it. `observation`
+      // already carries UNREADABLE_PDF (or NOT_ANALYSED) in that case.
+      turnText = extractedText
+        ? `I've uploaded a medical document: ${file.filename}. Contents:\n${extractedText}`
+        : observation;
+    }
     await saveRun(deps.pool, run);
-    return advanceWithMessage(deps, run, turnText);
+    // 'upload' marks this as an engine-synthesized turn so the case report can
+    // exclude it structurally rather than by prefix-matching its text.
+    return advanceWithMessage(deps, run, turnText, 'upload');
   });
 }

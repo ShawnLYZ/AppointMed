@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
-import { ENGINE_FIX, makeTestContext, type TestContext } from './helpers.js';
+import { caseReport, ENGINE_FIX, makeTestContext, type TestContext } from './helpers.js';
 import type { SlotOption } from '../src/workflow/types.js';
 
 let ctx: TestContext;
@@ -76,13 +76,13 @@ function slot(overrides: Partial<SlotOption> = {}): SlotOption {
  * Drives a fresh run from intake through triage and prefs collection into
  * matchAndPresent's presented options (see test/booking.test.ts): a single
  * slot at hospital A that satisfies budget/hospital/time on the first search
- * round, so exactly 3 ollama decisions are consumed (completeIntake, the
- * triage verdict, then prefs) and no relaxation is needed.
+ * round, so no relaxations are needed and exactly 4 ollama decisions are
+ * consumed (completeIntake, the triage verdict, the case report, then prefs).
  */
 async function driveToPresented(): Promise<{ runId: string; slot: SlotOption }> {
   ctx.adapter.slotsByKey[ENGINE_FIX.keyA] = [slot()];
   const { runId } = await start();
-  ctx.ollama.enqueue(completeIntake, cardiologyVerdict);
+  ctx.ollama.enqueue(completeIntake, cardiologyVerdict, caseReport());
   const first = await ctx.app.inject({
     method: 'POST', url: `/consult/${runId}/message`, headers: auth(), payload: { text: 'that is everything' },
   });
@@ -98,14 +98,13 @@ async function driveToPresented(): Promise<{ runId: string; slot: SlotOption }> 
 
 /**
  * Drives a full run to a pending appointment booked against hospital A
- * (Task-7 helpers, plus the select-slot call). Consumes a 4th ollama
- * decision (the case summary) on top of driveToPresented's 3. Returns the
- * fields postback needs that the /consult API response never surfaces, read
- * back from the appointments row it just created.
+ * (Task-7 helpers, plus the select-slot call). Booking itself is a pure
+ * database write now - no ollama decision beyond driveToPresented's 4.
+ * Returns the fields postback needs that the /consult API response never
+ * surfaces, read back from the appointments row it just created.
  */
 async function bookViaFlow(): Promise<{ runId: string; appointmentId: string; externalAppointmentId: string; hospitalId: string }> {
   const { runId, slot: presented } = await driveToPresented();
-  ctx.ollama.enqueue({ summary: 'Case summary for the hospital team.', priority: 'medium' });
   const res = await ctx.app.inject({
     method: 'POST', url: `/consult/${runId}/select-slot`, headers: auth(), payload: { slotId: presented.id },
   });

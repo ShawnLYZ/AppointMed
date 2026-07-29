@@ -134,6 +134,13 @@
   color: var(--warning-500);
 }
 
+/* Same muted tone as .requests__meta - a small secondary line under the summary. */
+.requests__attach-chip {
+  color: var(--neutral-500);
+  font-size: var(--text-sm);
+  margin: var(--space-1) 0 0;
+}
+
 .requests__actions {
   display: flex;
   flex-wrap: wrap;

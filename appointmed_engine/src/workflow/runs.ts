@@ -50,8 +50,21 @@ export async function logStep(
     [runId, node, kind, JSON.stringify(input ?? null), JSON.stringify(output ?? null), model ?? null, latencyMs ?? null]);
 }
 
+/**
+ * One stored chat turn. `kind: 'upload'` marks a turn the ENGINE synthesized
+ * for a file upload rather than one the patient typed. ai_chats.messages is
+ * jsonb and appendMessages already spreads arbitrary extra fields, so this is
+ * additive - rows written before this shipped simply lack the key, and both
+ * clients ignore it.
+ */
+export interface TranscriptEntry {
+  role: 'user' | 'assistant';
+  content: string;
+  kind?: 'upload';
+}
+
 export async function appendMessages(
-  pool: Pool, runId: string, msgs: { role: 'user' | 'assistant'; content: string }[],
+  pool: Pool, runId: string, msgs: TranscriptEntry[],
 ): Promise<void> {
   const stamped = msgs.map((m) => ({ ...m, at: new Date().toISOString() }));
   await pool.query(
@@ -59,9 +72,9 @@ export async function appendMessages(
     [runId, JSON.stringify(stamped)]);
 }
 
-export async function getTranscript(pool: Pool, runId: string): Promise<{ role: 'user' | 'assistant'; content: string }[]> {
+export async function getTranscript(pool: Pool, runId: string): Promise<TranscriptEntry[]> {
   const { rows } = await pool.query('select messages from public.ai_chats where run_id = $1', [runId]);
-  return (rows[0]?.messages ?? []) as { role: 'user' | 'assistant'; content: string }[];
+  return (rows[0]?.messages ?? []) as TranscriptEntry[];
 }
 
 export async function getSteps(pool: Pool, runId: string) {

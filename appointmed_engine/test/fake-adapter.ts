@@ -3,7 +3,7 @@ import type { SlotOption } from '../src/workflow/types.js';
 
 export class FakeAdapterClient implements AdapterClient {
   slotsByKey: Record<string, SlotOption[]> = {};
-  confirms: { apiKey: string; slotId: string; patientName: string }[] = [];
+  confirms: { apiKey: string; slotId: string; patientName: string; note?: string }[] = [];
   cancels: { apiKey: string; externalAppointmentId: string }[] = [];
   failNextGetSlots = false;
   failNextConfirm = false;
@@ -20,7 +20,7 @@ export class FakeAdapterClient implements AdapterClient {
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
       .slice(0, q.limit ?? 20);
   }
-  async confirm(apiKey: string, body: { slotId: string; patientName: string }) {
+  async confirm(apiKey: string, body: { slotId: string; patientName: string; note?: string }) {
     if (this.failNextConfirm) { this.failNextConfirm = false; throw new Error('adapter down'); }
     this.confirms.push({ apiKey, ...body });
     return { externalAppointmentId: `ext_fake_${++this.n}` };

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
-import { ENGINE_FIX, makeTestContext, type TestContext } from './helpers.js';
+import { caseReport, ENGINE_FIX, makeTestContext, type TestContext } from './helpers.js';
 import type { SlotOption } from '../src/workflow/types.js';
 
 let ctx: TestContext;
@@ -85,7 +85,7 @@ let currentRunId = '';
 async function driveToMatch(prefsDecision: unknown, relaxDecisions: unknown[] = []) {
   const { runId } = await start();
   currentRunId = runId;
-  ctx.ollama.enqueue(completeIntake, cardiologyVerdict);
+  ctx.ollama.enqueue(completeIntake, cardiologyVerdict, caseReport());
   const first = await ctx.app.inject({
     method: 'POST', url: `/consult/${runId}/message`, headers: auth(), payload: { text: 'that is everything' },
   });

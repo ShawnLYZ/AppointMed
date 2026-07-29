@@ -39,12 +39,47 @@ export interface SlotOption {
 
 export type MatchPhase = 'collecting' | 'ready' | 'presented';
 
+/** One patient-uploaded file. `observation` is the attachment stage's description. */
+export interface Attachment {
+  type: 'image' | 'pdf';
+  name: string;
+  path: string;
+  extractedText?: string;
+  observation?: string;
+}
+
+/**
+ * Exactly what the `summary` stage returns. `generated` and `triageDegraded`
+ * are deliberately ABSENT: the model must not be able to assert its own
+ * provenance in either direction. TypeScript stamps them after the call.
+ */
+export interface CaseReportDecision {
+  summary: string;                  // one line -> appointments.ai_summary
+  chiefComplaint: string;
+  historyOfPresentIllness: string;  // the detailed narrative
+  associatedSymptoms: string;
+  pastMedicalHistory: string;
+  currentMedications: string;
+  attachmentFindings: string;
+  triageAssessment: string;
+  redFlags: string[];
+  clinicianNotes: string;
+  priority: 'low' | 'medium' | 'high';
+}
+
+/** What is persisted to appointments.ai_report. */
+export type CaseReport = CaseReportDecision & {
+  generated: 'model' | 'fallback';
+  triageDegraded: boolean;
+};
+
 export interface RunState {
   symptoms: Symptoms;
-  attachments: { type: 'image' | 'pdf'; name: string; path: string; extractedText?: string }[];
+  attachments: Attachment[];
   pendingImages: string[]; // base64 images awaiting the next intake turn
   prefs?: Prefs;
   verdict?: Verdict;
+  report?: CaseReport;
   matchPhase?: MatchPhase;
   options?: SlotOption[];
   excludeHospitalIds: string[];

@@ -31,6 +31,27 @@ export const ENGINE_FIX = {
   specialistA: 'e1000000-0000-4000-8000-000000000001',
 };
 
+/**
+ * The `summary` stage's decision, now generated at triage instead of at
+ * booking. Byte-identical across every test file that drives a run through
+ * triage (triage, booking, match, postback, respond, upload), so it is
+ * defined once here rather than six times locally - unlike completeIntake /
+ * cardiologyVerdict / anyPrefs, which differ slightly per file and stay put.
+ */
+export const caseReport = () => ({
+  summary: 'Exertional chest tightness, 2 weeks, severity 6/10, hypertensive on amlodipine.',
+  chiefComplaint: 'Chest tightness on exertion',
+  historyOfPresentIllness: 'Two weeks of chest tightness brought on by exertion, rated 6/10, with breathlessness climbing stairs.',
+  associatedSymptoms: 'Breathlessness on stairs',
+  pastMedicalHistory: 'Hypertension',
+  currentMedications: 'Amlodipine',
+  attachmentFindings: 'No files were uploaded.',
+  triageAssessment: 'Cardiology within a week.',
+  redFlags: [],
+  clinicianNotes: 'Consider ECG at first contact.',
+  priority: 'medium',
+});
+
 export interface TestContext {
   app: FastifyInstance;
   pool: pg.Pool;
@@ -41,7 +62,9 @@ export interface TestContext {
   close: () => Promise<void>;
 }
 
-export async function makeTestContext(): Promise<TestContext> {
+export async function makeTestContext(
+  overrides: { extractPdfText?: EngineDeps['extractPdfText'] } = {},
+): Promise<TestContext> {
   const pool = new pg.Pool({ connectionString: config.databaseUrl, max: 3 });
   const supabase = makeSupabase(config.supabaseUrl, config.supabaseServiceRoleKey);
 
@@ -93,7 +116,7 @@ export async function makeTestContext(): Promise<TestContext> {
   const adapter = new FakeAdapterClient();
   const deps: EngineDeps = {
     pool, supabase, ollama, adapter,
-    extractPdfText: async () => 'FAKE-PDF-TEXT',
+    extractPdfText: overrides.extractPdfText ?? (async () => 'FAKE-PDF-TEXT'),
   };
   const app = buildServer(deps);
   return {

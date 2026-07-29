@@ -11,11 +11,41 @@
 <p align="center">
     <img src="https://img.shields.io/badge/Flutter-02569B?style=flat&logo=flutter&logoColor=white" alt="Flutter"/>
     <img src="https://img.shields.io/badge/Dart-0175C2?style=flat&logo=dart&logoColor=white" alt="Dart"/>
+    <img src="https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=white" alt="React"/>
     <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=flat&logo=supabase&logoColor=white" alt="Supabase"/>
     <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white" alt="PostgreSQL"/>
     <img src="https://img.shields.io/badge/Ollama-828282?style=flat&logo=ollama&logoColor=white" alt="Ollama"/>
-    <img src="https://img.shields.io/badge/Gemma4:12b-8E75B2?style=flat&logo=googlegemini&logoColor=white" alt="Gemini"/>
+    <img src="https://img.shields.io/badge/Gemma4:12b-8E75B2?style=flat&logo=googlegemini&logoColor=white" alt="Gemma"/>
 </p>
+
+---
+
+# 📸 Product Preview
+
+> Real screenshots from the current build.
+
+## Mobile App
+<div align="center">
+  <table>
+    <tr>
+      <th>Home</th>
+      <th>AI Chat</th>
+      <th>Appointments</th>
+      <th>Patient Profile</th>
+    </tr>
+    <tr>
+      <td align="center"><img src="assets/Home.png" alt="home" style="width:240px;height:auto;" /></td>
+      <td align="center"><img src="assets/AI Chat.png" alt="chat" style="width:240px;height:auto;" /></td>
+      <td align="center"><img src="assets/Appointments.png" alt="appointment" style="width:240px;height:auto;" /></td>
+      <td align="center"><img src="assets/Profile.png" alt="profile" style="width:240px;height:auto;" /></td>
+    </tr>
+  </table>
+</div>
+
+## Website
+| Dashboard | Requests | Patient Report | Integration | Settings |
+|-----------|-------------------|--------------|-------------------|--------------|
+| ![dashboard](assets/Dashboard.png) | ![request](assets/Requests.png) | ![report](assets/Patient_Report.png) | ![integration](assets/Integration.png) | ![setting](assets/Settings.png) |
 
 ---
 
@@ -46,8 +76,8 @@ reads that free text, works out which medical specialty is needed and how urgent
 budget and preferred timing, searches live appointment slots across **every subscribed hospital**,
 picks the ones that fit, and sends a booking request to the hospital that matches best.
 
-A real human at that hospital then sees the request in a web portal — with an AI-written case summary
-and a HIGH / MEDIUM / LOW priority badge — and presses **Confirm**, **Decline** or **Reschedule**.
+A real human at that hospital then sees the request in a web portal — with an AI-written clinical case
+report and a HIGH / MEDIUM / LOW priority badge — and presses **Confirm**, **Decline** or **Reschedule**.
 That answer travels back down the same chain automatically, and the patient's phone updates live.
 
 Every single decision, every tool call and every state change along the way is written to an
@@ -76,7 +106,7 @@ AppointMed attacks exactly that gap, in the four places a healthcare AI brief ca
 
 | Healthcare need | How AppointMed answers it |
 |---|---|
-| **Automate clinical documentation** | The free-text conversation is converted into six typed clinical fields (main complaint, duration, severity, associated symptoms, medical history, current medications) plus an AI case summary that the hospital manager actually triages on. The patient never fills a form. |
+| **Automate clinical documentation** | The free-text conversation is converted into six typed clinical fields (main complaint, duration, severity, associated symptoms, medical history, current medications) plus an eleven-field AI case report — generated at triage, once those fields and every attachment are known — that the hospital manager actually triages on. The patient never fills a form. |
 | **Optimise patient triaging** | The model returns one of nine specialties, an urgency level, an explanation, and any red flags. Urgency is not cosmetic — it narrows the slot search window from 7 days to 2 for urgent cases and sets the priority the hospital sees. A genuine emergency red flag seals the consultation and shows emergency guidance instead of continuing to book. |
 | **Manage hospital resources** | Slot inventory is searched across every subscribed hospital at once, filtered by the patient's real budget and timing constraints. Bookings are taken under a database row lock, so the same slot can never be sold twice, and a human at the hospital always has the final say. |
 | **Privacy-focused local models** | All reasoning happens on a locally served model. Symptom text, uploaded photos and PDF reports are never sent to an external AI service. Medical uploads live in a private storage bucket that no client key can read; the workflow log is unreadable to every client key in the system. |
@@ -88,13 +118,10 @@ Language Model is the central reasoning engine** — one that understands unstru
 across multiple stages, orchestrates tools and APIs, produces structured and actionable output, holds
 state, adapts to ambiguity and failure, and **collapses if the model is taken away**.
 
-That last requirement is the honest test, and AppointMed is designed to pass it visibly rather than
-rhetorically. See [§3](#3-how-the-local-ai-actually-drives-the-work).
-
 | What the brief asks for | Where it lives in this system |
 |---|---|
 | Understanding unstructured inputs (messages, forms, documents) | Free-text chat becomes six typed fields. PDF referrals are text-extracted and spliced into the same reasoning turn; JPEG/PNG/WebP photos are attached directly to the message for a multimodal model to read. |
-| Multi-step reasoning and decision-making across stages | Five separate schema-constrained decisions across four workflow stages. Decisions feed *forward*: the triage urgency literally determines the time window of the next stage's slot search. |
+| Multi-step reasoning and decision-making across stages | Six separate schema-constrained decisions across three workflow stages. Decisions feed *forward*: the triage urgency literally determines the time window of the next stage's slot search. |
 | Dynamic task orchestration, including tool and API interactions | The engine fans a slot search out over every candidate hospital — one authenticated HTTP call per hospital, using that hospital's own API key — then books, then receives a callback from the hospital system when a manager decides. |
 | Generation of structured, actionable outputs | Not just prose: a real `pending` appointment row carrying an AI summary and priority, written atomically with its notification; live realtime updates to both apps; and a JSON decision log with model name and latency per call. |
 | Stateful and adaptive under real-world constraints | The engine keeps **nothing** in memory between requests. Every turn reloads the run from the database and saves it back, so a consultation survives a server restart. Ambiguity gets a clarifying question; missing data gets a targeted re-ask; an impossible search gets an AI-chosen constraint relaxation; failures get bounded retries and safe fallbacks. |
@@ -104,16 +131,17 @@ rhetorically. See [§3](#3-how-the-local-ai-actually-drives-the-work).
 
 ## 3. How the local AI actually drives the work
 
-The model is not a chatbot bolted onto a booking form. It is the component that makes five distinct
+The model is not a chatbot bolted onto a booking form. It is the component that makes six distinct
 decisions, each one shaped by a **JSON Schema** that the local runtime enforces during decoding:
 
 | Stage | The decision the model returns | Why it matters |
 |---|---|---|
 | **Intake** | `reply`, `complete`, `redFlag`, and the six symptom fields | Turns unstructured chat into a clinical record; decides whether to ask again or move on; catches emergencies |
+| **Attachment** | `observation` — a plain-language description of an uploaded photo or document | Vision-capable pass over each upload at upload time, so the doctor sees a description of the file itself, not just AI-extracted text |
 | **Triage** | `specialty` (1 of 9), `urgency` (`asap` / `week` / `month` / `routine`), `explanation`, `redFlags[]` | Chooses the medical route and the urgency that drives the search window |
 | **Preferences** | `reply`, `complete`, and `budget` / `preferredHospital` / `preferredTime` | Reads constraints out of conversational text — no form fields |
 | **Relaxation** | which single constraint to loosen, and why | The adaptive step: when zero slots match, the model decides what to give up |
-| **Summary** | the case summary and `priority` for the hospital | The structured, human-actionable output at the far end |
+| **Case report** | an eleven-field clinical case report — chief complaint, history of present illness, attachment findings, triage assessment, clinician notes, priority, and more — generated at `triage` | The structured, human-actionable output the hospital manager reviews; persisted to `appointments.ai_report` when the patient books |
 
 Because the schema constrains decoding, `specialty` can *only* ever be one of the nine allowed
 strings. The engine never string-scrapes a reply, never parses sentinel tags, and never has to defend
@@ -186,7 +214,7 @@ patient describes symptoms (± photo / PDF)
    patient picks a slot  →  PENDING booking request created at that hospital
         │
         ▼
-   hospital manager reviews it in the portal — AI case summary + priority badge —
+   hospital manager reviews it in the portal — AI case report + priority badge —
    and confirms, declines or proposes a different time
         │
         ▼   callback to the engine (shared-secret header, bounded retries)
@@ -220,7 +248,7 @@ it matches how private hospitals actually behave today.
  ┌──────────────────────────────────────────────────┐        │
  │  Workflow engine      appointmed_engine/  :8080  │        │
  │    7-stage persisted state machine               │        │
- │    5 schema-constrained AI decisions             │        │
+ │    6 schema-constrained AI decisions             │        │
  │    append-only audit log of every step           │        │
  └────────┬──────────────────────────┬──────────────┘        │
           │                          │                       │
@@ -773,7 +801,13 @@ are expected and correct — those are the templates. A match anywhere else is a
 
 > **A note on the model name.** If your computer struggles with the 12-billion-parameter model,
 > change `MODEL_DEFAULT=` in `appointmed_engine/.env` to any model you have downloaded with
-> `ollama pull`. That is a preference, not a placeholder.
+> `ollama pull`. That is a preference, not a placeholder. One stage needs a separate look: uploaded
+> photos are described by the `attachment` stage, which reads `MODEL_ATTACHMENT` (falling back to
+> `MODEL_DEFAULT` when unset) and **must** stay vision-capable. If the lighter model you switch to
+> cannot read images, uncomment `MODEL_ATTACHMENT=` in `.env.example` and point it at a vision model
+> you do have — otherwise the primary model still answers instead of failing. A JSON-schema-constrained
+> reply only guarantees the *shape* of `{observation}`, never its truth, so a non-vision model will
+> return a confident, fabricated description of a photo it never saw — not an honest "not analysed."
 
 ---
 
@@ -1023,12 +1057,14 @@ Nothing below is a fake screen. Every step hits a running service and your live 
    constraint to relax, says which and why, and searches again — up to three times before a friendly
    give-up that leaves the consultation alive.
 
-9. **Book.** Pick a slot. The engine reserves it at the hospital under a row lock, creates a `pending`
-   appointment, and writes the case summary and priority the manager will triage on.
+9. **Book.** Pick a slot. The engine reserves it at the hospital under a row lock and creates a
+   `pending` appointment, persisting the case report and priority that were already generated one
+   step earlier, at triage (step 6) — booking itself makes no AI call.
 
 10. **The request appears.** In the portal go to **Requests**. The new request shows the AI case
-    summary and a HIGH / MEDIUM / LOW badge, with Confirm, Decline and Reschedule buttons. It arrived
-    over a realtime connection — no refresh needed.
+    report and a HIGH / MEDIUM / LOW badge — open it for the full clinical report and any uploaded
+    files — with Confirm, Decline and Reschedule buttons. It arrived over a realtime connection — no
+    refresh needed.
 
 11. **Confirm it.** The portal calls the hospital adapter with the hospital's own API key. The adapter
     calls back into the engine, which completes the run.
@@ -1087,10 +1123,23 @@ tests are deterministic and need **no** model running.
 |---|---|---|---|
 | Database | project root | `npm run db:verify` | `tables: 12/12`, `buckets: 2/2`, trigger present |
 | Database security | project root | `npm run test:rls` | 13 pass / 0 fail |
-| Workflow engine | `appointmed_engine/` | `npm run typecheck` then `npm test` | clean typecheck; 56 tests across 12 files |
+| Workflow engine | `appointmed_engine/` | `npm run typecheck` then `npm test` | clean typecheck; 82 tests across 14 files |
 | Hospital adapter | `appointmed_hospital_adapter/` | `npm run typecheck` then `npm test` | clean typecheck; 37 tests across 6 files |
 | Patient app | `appointmed_mobile/` | `flutter analyze` then `flutter test` | 0 errors / 0 warnings; 8 tests pass |
 | Hospital portal | `appointmed_website/` | `npm run lint` then `npm run build` | no lint errors; build succeeds |
+
+The workflow engine total above includes coverage added for the case report and attachments
+feature:
+
+| Behaviour proven | Test |
+|---|---|
+| Case report generated at triage, model path | `appointmed_engine/test/triage.test.ts` |
+| Case report falls back when the model is unreachable | `appointmed_engine/test/triage.test.ts` |
+| Report shaping and fallback template (no DB needed) | `appointmed_engine/test/report.test.ts` |
+| Uploaded image described by the attachment stage | `appointmed_engine/test/upload.test.ts` |
+| Scanned PDF skips the model; corrupt PDF is not a 500 | `appointmed_engine/test/upload.test.ts` |
+| Report and path-free attachment manifest persisted at booking | `appointmed_engine/test/booking.test.ts` |
+| Manager attachment access: tenancy, window, audit | `appointmed_engine/test/portal-attachments.test.ts` |
 
 Notes:
 

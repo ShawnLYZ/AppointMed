@@ -62,7 +62,7 @@ the result. A **simulated hospital adapter** (`../appointmed_hospital_adapter/`,
 for a real hospital information system, exposing a per-hospital API-key REST surface for slot search,
 booking and manager decisions, and calling back into the engine when a hospital decides. A **React
 hospital portal** (`../appointmed_website/`, port 5173) puts a human in the loop: managers review the
-AI's case summary and priority, then confirm, decline or reschedule — over the exact same public
+AI's clinical case report and priority, then confirm, decline or reschedule — over the exact same public
 adapter API a real hospital integration would use. **Hosted Supabase** (Postgres + Auth + Storage +
 Realtime) is the shared substrate; clients read it under least-privilege RLS and can write almost
 nothing (two narrow column grants — see below), while the two Node services hold the privileged
@@ -158,10 +158,11 @@ nonetheless the surface where a model outage becomes visible, so it is worth kno
 | Stage | With the local LLM | Without it |
 |---|---|---|
 | intake | Extracts six symptom fields from free text, asks targeted follow-ups, flags emergencies | Nothing is extracted; the run repeats an apologetic hold message forever and **never leaves `intake`** |
+| attachment | Describes each uploaded photo or document in plain language at upload time, feeding both intake (documents) and triage (documents + photos) | The file still uploads and stores fine; its description just reads `NOT_ANALYSED` instead of a real one — a vision call never retries against the non-vision fallback model, so an unseen photo is never fabricated |
 | triage | Chooses one of nine specialties and an urgency that sets the search window (2 days for `asap`, 7 otherwise) | Everyone is sent to General Practice, routine |
+| triage (case report) | Writes the eleven-field clinical case report (chief complaint, history of present illness, triage assessment, priority, etc.) that the hospital manager reviews | `fallbackReport()`: a deterministic report assembled from the stored symptom fields and attachment descriptions; priority from the same static urgency map |
 | match (prefs) | Reads budget, hospital and time-of-day out of conversational text | Preferences are never captured, so no slot search is ever issued |
 | match (relax) | Picks which constraint to loosen given the situation, and explains it | Fixed `time → hospital → budget` order with a generic sentence |
-| book_request | Writes the case summary and priority the hospital manager triages by | Template string; priority from a static urgency map |
 
 Nothing crashes and no wrong booking is made — the chat keeps responding. But with Ollama stopped, a
 two-message consultation captures **0 of 6** symptom fields and the run stays at `intake`/`active`.

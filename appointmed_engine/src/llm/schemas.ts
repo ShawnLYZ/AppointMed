@@ -1,4 +1,4 @@
-import type { Prefs, Symptoms, Verdict } from '../workflow/types.js';
+import type { CaseReportDecision, Prefs, Symptoms, Verdict } from '../workflow/types.js';
 
 export const SPECIALTIES = ['General Practice', 'Cardiology', 'Dermatology', 'Orthopedics',
   'Pediatrics', 'Neurology', 'ENT', 'Gastroenterology', 'Pulmonology'] as const;
@@ -52,8 +52,31 @@ export const relaxSchema = {
   properties: { relax: { type: 'string', enum: ['time', 'hospital', 'budget'] }, explanation: { type: 'string' } },
 };
 
-export interface SummaryDecision { summary: string; priority: 'low' | 'medium' | 'high' }
+export type SummaryDecision = CaseReportDecision;
+
+const reportSection = { type: 'string' } as const;
 export const summarySchema = {
-  type: 'object', required: ['summary', 'priority'], additionalProperties: false,
-  properties: { summary: { type: 'string' }, priority: { type: 'string', enum: ['low', 'medium', 'high'] } },
+  type: 'object', additionalProperties: false,
+  required: ['summary', 'chiefComplaint', 'historyOfPresentIllness', 'associatedSymptoms',
+    'pastMedicalHistory', 'currentMedications', 'attachmentFindings', 'triageAssessment',
+    'redFlags', 'clinicianNotes', 'priority'],
+  properties: {
+    summary: reportSection,
+    chiefComplaint: reportSection,
+    historyOfPresentIllness: reportSection,
+    associatedSymptoms: reportSection,
+    pastMedicalHistory: reportSection,
+    currentMedications: reportSection,
+    attachmentFindings: reportSection,
+    triageAssessment: reportSection,
+    redFlags: { type: 'array', items: { type: 'string' } },
+    clinicianNotes: reportSection,
+    priority: { type: 'string', enum: ['low', 'medium', 'high'] },
+  },
+};
+
+export interface AttachmentDecision { observation: string }
+export const attachmentSchema = {
+  type: 'object', required: ['observation'], additionalProperties: false,
+  properties: { observation: { type: 'string', minLength: 1 } },
 };

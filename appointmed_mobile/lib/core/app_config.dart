@@ -16,11 +16,11 @@ class AppConfig {
   //   flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
   static const String supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: 'https://YOUR_PROJECT_REF.supabase.co',
+    defaultValue: 'https://gkbleklehgcsrxptolhe.supabase.co',
   );
   static const String supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: 'YOUR_SUPABASE_ANON_KEY',
+    defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrYmxla2xlaGdjc3J4cHRvbGhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4NDEwOTcsImV4cCI6MjA5ODQxNzA5N30.dPB0uYmxEnE309-v7DohugErLi-PMMblyj9UIEO8e_o',
   );
 
   /// False while either value above is still a `YOUR_...` placeholder.

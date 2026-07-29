@@ -48,7 +48,7 @@ This `.env` is also the single source of truth for `npm test` (loaded by
 | `OLLAMA_URL` | `http://localhost:11434` | base URL of the local Ollama server |
 | `MODEL_DEFAULT` | `gemma4:12b` | model used for every stage unless overridden per-stage |
 | `MODEL_FALLBACK` | `qwen3.5:9b` | second model tried if the stage model's own attempts fail |
-| `MODEL_INTAKE` / `MODEL_TRIAGE` / `MODEL_PREFS` / `MODEL_RELAX` / `MODEL_SUMMARY` | unset → falls back to `MODEL_DEFAULT` | per-stage model overrides, one per workflow stage (see below) |
+| `MODEL_INTAKE` / `MODEL_TRIAGE` / `MODEL_PREFS` / `MODEL_RELAX` / `MODEL_SUMMARY` / `MODEL_ATTACHMENT` | unset → falls back to `MODEL_DEFAULT` | per-stage model overrides, one per workflow stage (see below). `MODEL_ATTACHMENT` must be vision-capable — that stage receives uploaded images directly |
 
 ## Consult API
 
@@ -88,7 +88,24 @@ interface ConsultReply {
 | `POST /portal/specialists/:id/toggle` | bearer (`hospital_manager`) | flip a specialist's `is_active` (own hospital only; 404 on a foreign specialist) |
 | `POST /portal/api-key/regenerate` | bearer (`hospital_manager`) | rotate the caller's hospital API key |
 | `POST /portal/verification-docs` | bearer (`hospital_manager`), multipart | upload one or more hospital verification documents |
+| `GET /portal/appointments/:id/attachments` | bearer (`hospital_manager`) | mint 60-minute signed URLs for the files the patient uploaded during the consultation behind this appointment (own hospital only; 404 on foreign/declined/cancelled/unknown) |
 | `GET /health` | none | liveness check |
+
+### `GET /portal/appointments/:id/attachments`
+
+Bearer auth, hospital managers only. Returns 60-minute signed URLs for the files
+the patient uploaded during the consultation behind this appointment.
+
+- `403 manager_only` — the caller is not a `hospital_manager`.
+- `404 appointment_not_found` — the appointment belongs to another hospital, has
+  been declined or cancelled, or does not exist. These are deliberately
+  indistinguishable.
+- `200 { "attachments": [{ "type", "name", "observation", "signedUrl" }] }` —
+  `signedUrl` is `null` for any single file whose signature failed. Storage paths
+  are never returned as a separate field.
+
+Every call that returns at least one attachment writes a `tool_call` step against
+the patient's run recording the hospital and the manager who looked.
 
 ## Postback contract
 
@@ -114,18 +131,24 @@ hospital.
 
 ## Model configuration
 
-Five workflow stages each make their own structured (JSON-schema-constrained)
-Ollama call: **intake**, **triage**, **prefs**, **relax**, **summary**. Each
-stage resolves its model independently — `MODEL_INTAKE` etc. if set, else
-`MODEL_DEFAULT` — and every call retries its stage model twice, then
-`MODEL_FALLBACK` twice, before raising `OllamaUnavailableError`
-(`src/ollama/client.ts`). When even that is exhausted, the calling node
-degrades to a deterministic, logged fallback instead of crashing the run —
-e.g. triage without a working model falls back to `General Practice` /
-`routine`, matching's constraint-relaxation falls back to a fixed relax order
-(time → hospital → budget). This is the "LLM removed ⇒ workflow collapses
-safely" behavior: stop Ollama mid-run and the consult keeps responding, just
-without model-quality reasoning.
+Six workflow stages each make their own structured (JSON-schema-constrained)
+Ollama call: **intake**, **triage**, **prefs**, **relax**, **summary**,
+**attachment**. Each stage resolves its model independently — `MODEL_INTAKE`
+etc. if set, else `MODEL_DEFAULT` — and every call retries its stage model
+twice, then `MODEL_FALLBACK` twice, before raising `OllamaUnavailableError`
+(`src/ollama/client.ts`). **One exception:** a call that carries images (the
+`attachment` stage's photo pass) never retries against `MODEL_FALLBACK` — that
+model is not documented as vision-capable, and a non-vision model asked to
+describe a photo would return a confident, fabricated `{observation}` rather
+than failing loudly, so such a call gets two attempts against its own stage
+model only before raising `OllamaUnavailableError`. When even that is
+exhausted, the calling node degrades to a deterministic, logged fallback
+instead of crashing the run — e.g. triage without a working model falls back
+to `General Practice` / `routine`, an unreachable attachment stage stores the
+file with a `NOT_ANALYSED` observation, matching's constraint-relaxation falls
+back to a fixed relax order (time → hospital → budget). This is the "LLM
+removed ⇒ workflow collapses safely" behavior: stop Ollama mid-run and the
+consult keeps responding, just without model-quality reasoning.
 
 ## Run-log / audit trail
 
@@ -168,8 +191,8 @@ the result. A **simulated hospital adapter** (`../appointmed_hospital_adapter/`,
 for a real hospital information system, exposing a per-hospital API-key REST surface for slot search,
 booking and manager decisions, and calling back into the engine when a hospital decides. A **React
 hospital portal** (`../appointmed_website/`, port 5173) puts a human in the loop: managers review the
-AI's case summary and priority, then confirm, decline or reschedule — over the exact same public
-adapter API a real hospital integration would use. **Hosted Supabase** (Postgres + Auth + Storage +
+AI's clinical case report and priority, then confirm, decline or reschedule — over the exact same
+public adapter API a real hospital integration would use. **Hosted Supabase** (Postgres + Auth + Storage +
 Realtime) is the shared substrate; clients read it under least-privilege RLS and can write almost
 nothing (two narrow column grants), while the two Node services hold the privileged credentials.
 
@@ -239,9 +262,9 @@ stateDiagram-v2
 | Node | 🧠 LLM decision schema | Tools called | Edge handling | Fallback if the model is unreachable |
 |---|---|---|---|---|
 | `intake` | `intakeSchema` → `{reply, complete, redFlag, redFlagReason?, fields{mainComplaint, duration, severity, associatedSymptoms, medicalHistory, currentMedications}}` | `storeMedicalFile` (Supabase Storage, `medical-files`), `extractPdfText` (pdf-parse, first 4 000 chars); transcript read/append | `complete:false` loops with a targeted follow-up; vague or contradictory input is told to clarify rather than guess; `redFlag:true` seals the run; uploads outside intake → `409 uploads_only_during_intake`, on a sealed run → `409 consultation_escalated` | Apologetic hold reply, run stays `active` at `intake`, `fallback` step logged. **No fields are extracted**, so the run can never progress. |
-| `triage` | `triageSchema` → `{specialty (enum of 9), urgency (asap\|week\|month\|routine), explanation, redFlags[]}` | none | Runs in the same turn intake completes, so the patient sees one continuous reply: verdict + disclaimer + first booking question | Hard-coded `General Practice` / `routine` verdict, `fallback` step logged. Safe, but no specialty or urgency intelligence remains. |
+| `triage` | `triageSchema` → `{specialty (enum of 9), urgency (asap\|week\|month\|routine), explanation, redFlags[]}`, then `summarySchema` → an eleven-field case report (`summary, chiefComplaint, historyOfPresentIllness, associatedSymptoms, pastMedicalHistory, currentMedications, attachmentFindings, triageAssessment, redFlags, clinicianNotes, priority`) | none | Runs in the same turn intake completes, so the patient sees one continuous reply: verdict + disclaimer + first booking question. The case report is generated in this same turn — by triage, all six symptom fields are known and every attachment already exists (uploads are intake-only) — and stored on `run.state.report` for `book_request` to persist verbatim | Triage: hard-coded `General Practice` / `routine` verdict, `fallback` step logged. Case report: `fallbackReport()` assembles a deterministic report from the stored symptom fields and attachment descriptions (priority from the same static urgency map), `fallback` step logged under `{for: "case_report"}`. Safe, but no specialty, urgency or clinical-summary intelligence remains. |
 | `match` | `prefsSchema` → `{reply, complete, prefs{budget, preferredHospital, preferredTime}}`, then `relaxSchema` → `{relax: time\|hospital\|budget, explanation}` when a search comes back empty | `adapter.getSlots` once per candidate hospital; Postgres picks the candidates — every hospital with an active API key, minus `excludeHospitalIds`, narrowed by a name match when the patient named a preferred hospital | Incomplete prefs keep asking; zero results trigger up to 3 LLM-chosen relaxations (max 4 search rounds) before a friendly give-up that leaves the run alive; an adapter error yields a retry-later reply and parks the run at `matchPhase:'ready'`; the relaxation budget resets on every new matching cycle | Prefs: apologetic hold reply — preferences are never extracted, so no search ever runs. Relax: fixed order `time → hospital → budget`. |
-| `book_request` | `summarySchema` → `{summary, priority: low\|medium\|high}` (the ≤ 80-word cap is prompt-side, not in the schema) | `adapter.confirm` (per-hospital key) | Guarded against double-tap: a run already past `match` returns `409 already_booked`; an unknown or un-presented slot returns `400 unknown_slot_option`; a failed confirm (e.g. the slot was just taken) returns the run to `match` with `matchPhase:'ready'` so fresh options can be fetched | Templated summary assembled from the stored symptom fields, priority derived from urgency by a static map (`asap→high, week→medium, else low`). |
+| `book_request` | none — this node makes no LLM call. Booking is a pure database write that reads the case report already generated at `triage` (`run.state.report`) | `adapter.confirm` (per-hospital key) | Guarded against double-tap: a run already past `match` returns `409 already_booked`; an unknown or un-presented slot returns `400 unknown_slot_option`; a failed confirm (e.g. the slot was just taken) returns the run to `match` with `matchPhase:'ready'` so fresh options can be fetched | n/a — no model is called here. A run persisted before this report shipped (so `state.report` is empty) falls back to `fallbackReport()` and logs a `fallback` step under `{for: "case_report", reason: "run_predates_triage_report"}`. |
 | `hospital_review` | none | none — the run is parked | Any further patient message returns "your booking request is with the hospital team"; the run holds `status:'waiting_hospital'` | n/a — this node needs no model. |
 | `postback` | none | `adapter.cancel` (best-effort, on patient cancel or on re-matching a proposed time) | The `appointments` UPDATE is scoped by `external_appointment_id` **and** `hospital_id` **and** a non-terminal status, so a wrong-hospital, unknown or replayed postback is a `404` that changes nothing; a patient's local cancel still succeeds if the hospital is unreachable | n/a — deterministic. |
 | `done` | none | none | Terminal; further messages get a "start a new consultation" reply | n/a |
@@ -265,17 +288,28 @@ and `JSON.parse`s `message.content`. Ollama's `format` field constrains decoding
 does not have to defend against a hallucinated specialty, and `additionalProperties: false` keeps
 stray keys out.
 
-**Per-stage models.** `Stage` is `intake | triage | prefs | relax | summary`. All five default to
-`MODEL_DEFAULT` (`gemma4:12b`) and each is independently overridable —
-`MODEL_INTAKE`, `MODEL_TRIAGE`, `MODEL_PREFS`, `MODEL_RELAX`, `MODEL_SUMMARY` — so a heavier model
-can be pointed at triage alone without slowing intake. `MODEL_FALLBACK` (`qwen3.5:9b`) is the
-second-choice model in the retry ladder.
+**Per-stage models.** `Stage` is `intake | triage | prefs | relax | summary | attachment`. All six
+default to `MODEL_DEFAULT` (`gemma4:12b`) and each is independently overridable —
+`MODEL_INTAKE`, `MODEL_TRIAGE`, `MODEL_PREFS`, `MODEL_RELAX`, `MODEL_SUMMARY`, `MODEL_ATTACHMENT` —
+so a heavier model can be pointed at triage alone without slowing intake. `MODEL_ATTACHMENT` carries
+an extra requirement: it must be vision-capable, since the attachment stage receives uploaded images
+directly. `MODEL_FALLBACK` (`qwen3.5:9b`) is the second-choice model in the retry ladder for every
+stage except a call that carries images — see the exception below.
 
 **Bounded retry ladder.** For each of `[stage model, fallback model]`, two attempts, i.e. at most
 four HTTP calls, each under a 90-second `AbortSignal.timeout`. A non-200, a network failure *and* an
 unparseable body all count as failures. Only when all four fail does the client raise
 `OllamaUnavailableError` — the single exception type every node catches to enter its documented
 fallback. Anything else propagates and becomes a clean `500 {error:"internal_error"}`.
+
+**Exception: calls that carry images never reach the fallback model.**
+`OllamaHttpClient.structured()` inspects the outgoing messages for `images`, not the stage name, so
+this applies to any vision call. `MODEL_FALLBACK` is not documented as vision-capable, and constrained
+decoding only guarantees the *shape* of a reply, never its truth — a non-vision model asked to
+describe a photo would return a confident, fabricated `{observation}` instead of failing. Such a call
+gets two attempts against its own stage model only, then raises `OllamaUnavailableError` directly
+(`src/ollama/client.ts`) — which `describe()` (`src/tools/attachments.ts`) already catches and
+degrades to a logged `NOT_ANALYSED` observation, exactly the outcome an unanalysed file should show.
 
 **Why not native function-calling.** The models involved do advertise a `tools` capability, so this
 is a deliberate choice rather than a limitation. Three reasons, all visible in the code: (1) every
@@ -292,10 +326,11 @@ crash, never a wrong booking — but the coordination itself disappears:
 | Stage | With the local LLM | Without it |
 |---|---|---|
 | intake | Extracts six symptom fields from free text, asks targeted follow-ups, flags emergencies | Nothing is extracted; the run repeats a hold message forever and **never leaves `intake`** |
+| attachment | Describes each uploaded photo or document in plain language at upload time, feeding both intake (documents) and triage (documents + photos) | The file is still stored; its description reads `NOT_ANALYSED` ("Not analysed — AI was unavailable..."). A vision call never retries against the non-vision fallback model, so an unseen photo is never fabricated — it is always marked unanalysed instead |
 | triage | Chooses one of nine specialties and an urgency that sets the search window (2 days for `asap`, 7 otherwise) | Everyone is sent to General Practice, routine — no triage remains |
+| triage (case report) | Writes the eleven-field clinical case report — chief complaint, history of present illness, attachment findings, triage assessment, clinician notes, priority, etc. — that the hospital manager reviews | `fallbackReport()`: a deterministic report assembled from the stored symptom fields and attachment descriptions; priority from the same static urgency map |
 | match (prefs) | Reads budget, hospital and time-of-day out of conversational text | Preferences are never captured, so no slot search is ever issued |
 | match (relax) | Picks which constraint to loosen given the situation, and explains it | Fixed `time → hospital → budget` order with a generic sentence |
-| book_request | Writes the case summary and priority the hospital manager triages by | Template string; priority from a static urgency map |
 
 This is directly demonstrable, and was verified for the architecture doc: with `OLLAMA_URL` pointed at
 a dead port, a two-message consultation produced only `fallback` steps, captured **0 of 6** symptom
@@ -352,6 +387,12 @@ adapter on :8090, and completed by a genuine manager `confirm` sent to
 `POST /appointment/decision`. All 32 steps are listed; the *Detail* column paraphrases the stored
 `input`/`output` JSON for width, and three rows are reproduced verbatim underneath.
 
+> **This capture predates the case-report move.** It was taken on 2026-07-26, before the change that
+> moved the case-report call from `book_request` to `triage` and expanded it from a two-field
+> `{summary, priority}` into the eleven-field report described under **Model configuration** above.
+> `seq 30` below still shows the pre-change shape — the note directly under the table explains what
+> the real step looks like today.
+
 | seq | node | kind | model | ms | Detail |
 |---|---|---|---|---|---|
 | 1 | intake | llm_decision | gemma4:e4b | 46 206 | Extracted `mainComplaint` only; `complete:false`; asked how long it had been going on |
@@ -367,7 +408,7 @@ adapter on :8090, and completed by a genuine manager `confirm` sent to
 | 19 | match | transition | — | — | `prefsComplete:true` (second matching cycle) |
 | 20–28 | match | tool_call ×9 | — | — | Second `adapter.getSlots` fan-out, same 9 hospitals |
 | 29 | book_request | tool_call | — | — | `adapter.confirm` → `externalAppointmentId: ext_de4780d577891965` |
-| 30 | book_request | llm_decision | gemma4:e4b | 11 535 | Case summary for the manager, `priority:"high"` |
+| 30 | book_request | llm_decision | gemma4:e4b | 11 535 | Case summary for the manager, `priority:"high"` — **pre-branch capture, see note below** |
 | 31 | book_request | transition | — | — | `to: hospital_review`, appointment `1adc1a5e-…` |
 | 32 | postback | transition | — | — | `action:"confirmed"` → `appointmentStatus:"confirmed"` |
 
@@ -376,7 +417,19 @@ ran in 5.7–12.3 s. The run finished at `status:"completed"`, `current_node:"do
 appointment row at `status:"confirmed"`, `status_source:"hospital_postback"`,
 `suggested_priority:"high"`, `created_via_ai:true`.
 
-Three rows verbatim, exactly as stored (only the surrounding array is elided):
+**What `seq 30` looks like today.** As flagged above, this specific step can no longer occur: as of
+this branch, `book_request` makes no LLM call at all — it is a pure database write that reads
+`run.state.report`, a report already generated one node earlier. The real equivalent is logged at
+`triage`, in the same turn as the triage verdict (so it would land around `seq 6`, not `seq 30`,
+shifting every later `seq` in this walkthrough by one): `{node: "triage", kind: "llm_decision", input:
+{for: "case_report"}}`, with a **thirteen-field** output — the eleven fields `summarySchema` requires
+(`summary, chiefComplaint, historyOfPresentIllness, associatedSymptoms, pastMedicalHistory,
+currentMedications, attachmentFindings, triageAssessment, redFlags, clinicianNotes, priority`) plus
+`generated` and `triageDegraded`, both stamped by TypeScript immediately after the call — never
+asserted by the model about its own provenance (`src/workflow/nodes/triage.ts`).
+
+Three rows verbatim, exactly as stored (only the surrounding array is elided; the third, `seq 30`, is
+the pre-branch shape described above):
 
 ```json
 {

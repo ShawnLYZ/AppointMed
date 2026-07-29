@@ -66,7 +66,7 @@ the result. A **simulated hospital adapter** (this directory, port 8090) stands 
 for a real hospital information system, exposing a per-hospital API-key REST surface for slot search,
 booking and manager decisions, and calling back into the engine when a hospital decides. A **React
 hospital portal** (`../appointmed_website/`, port 5173) puts a human in the loop: managers review the
-AI's case summary and priority, then confirm, decline or reschedule — over the exact same public
+AI's clinical case report and priority, then confirm, decline or reschedule — over the exact same public
 adapter API a real hospital integration would use. **Hosted Supabase** (Postgres + Auth + Storage +
 Realtime) is the shared substrate; clients read it under least-privilege RLS and can write almost
 nothing (two narrow column grants), while the two Node services hold the privileged credentials.

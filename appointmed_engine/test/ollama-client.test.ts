@@ -1,7 +1,7 @@
 import { expect, test, vi } from 'vitest';
 import { OllamaHttpClient, OllamaUnavailableError } from '../src/ollama/client.js';
 
-const models = { intake: 'gemma4:12b', triage: 'gemma4:12b', prefs: 'gemma4:12b', relax: 'gemma4:12b', summary: 'gemma4:12b' };
+const models = { intake: 'gemma4:12b', triage: 'gemma4:12b', prefs: 'gemma4:12b', relax: 'gemma4:12b', summary: 'gemma4:12b', attachment: 'gemma4:12b' };
 const ok = (content: string) => ({ ok: true, json: async () => ({ message: { content } }) }) as Response;
 
 function client(fetchFn: typeof fetch) {
@@ -40,4 +40,21 @@ test('throws OllamaUnavailableError after all attempts fail', async () => {
     client(fetchFn as never).structured({ stage: 'summary', messages: [], schema: {} }),
   ).rejects.toBeInstanceOf(OllamaUnavailableError);
   expect(fetchFn).toHaveBeenCalledTimes(4); // 2 attempts × 2 models
+});
+
+test('a call carrying images never falls back to the fallback model', async () => {
+  const fetchFn = vi.fn().mockRejectedValue(new Error('vision model down'));
+  await expect(
+    client(fetchFn as never).structured({
+      stage: 'attachment',
+      messages: [{ role: 'user', content: 'describe this', images: ['base64img'] }],
+      schema: {},
+    }),
+  ).rejects.toBeInstanceOf(OllamaUnavailableError);
+  // 2 attempts on the vision model only - MODEL_FALLBACK is never tried
+  // against an image, since it is not documented as vision-capable.
+  expect(fetchFn).toHaveBeenCalledTimes(2);
+  for (const [, init] of fetchFn.mock.calls) {
+    expect(JSON.parse(init.body).model).toBe('gemma4:12b');
+  }
 });

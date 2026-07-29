@@ -1,12 +1,7 @@
-import { OllamaUnavailableError } from '../../ollama/client.js';
-import { summarySchema, type SummaryDecision } from '../../llm/schemas.js';
-import { summarySystemPrompt } from '../../llm/prompts.js';
+import { fallbackReport } from '../report.js';
 import { appendMessages, logStep, saveRun } from '../runs.js';
 import type { EngineDeps } from '../../server.js';
 import type { ConsultReply, Run } from '../types.js';
-
-const PRIORITY_BY_URGENCY: Record<string, 'low' | 'medium' | 'high'> =
-  { asap: 'high', week: 'medium', month: 'low', routine: 'low' };
 
 export async function bookSelectedSlot(deps: EngineDeps, run: Run, slotId: string): Promise<ConsultReply | { httpError: [number, string] }> {
   // A booked run sits at 'hospital_review' — only a run still matching may book.
@@ -24,9 +19,25 @@ export async function bookSelectedSlot(deps: EngineDeps, run: Run, slotId: strin
   const prof = await deps.pool.query('select full_name from public.profiles where id = $1', [run.userId]);
   const patientName = prof.rows[0]?.full_name ?? 'AppointMed patient';
 
+  // Generated at triage. The ?? covers a run persisted before this shipped.
+  const report = run.state.report ?? fallbackReport(run.state, false);
+  if (!run.state.report) {
+    await logStep(deps.pool, run.id, 'book_request', 'fallback',
+      { for: 'case_report', reason: 'run_predates_triage_report' }, report);
+  }
+
+  // Manifest for the hospital portal: descriptions only. Storage paths stay in
+  // workflow_runs.state, which has RLS on and zero policies - the bytes are
+  // reachable only through the engine's tenant-scoped, audit-logged route.
+  const manifest = run.state.attachments.map((a) => ({
+    type: a.type, name: a.name, observation: a.observation ?? 'Not analysed.',
+  }));
+
   let externalAppointmentId: string;
   try {
-    const r = await deps.adapter.confirm(keyRow.rows[0].api_key, { slotId, patientName });
+    const r = await deps.adapter.confirm(keyRow.rows[0].api_key, {
+      slotId, patientName, note: report.summary,
+    });
     externalAppointmentId = r.externalAppointmentId;
     await logStep(deps.pool, run.id, 'book_request', 'tool_call',
       { tool: 'adapter.confirm', slotId, hospital: option.hospitalName }, r);
@@ -38,26 +49,6 @@ export async function bookSelectedSlot(deps: EngineDeps, run: Run, slotId: strin
     const reply = "I couldn't submit that booking (the slot may have just been taken). Send any message and I'll try to find fresh options.";
     await appendMessages(deps.pool, run.id, [{ role: 'assistant', content: reply }]);
     return { runId: run.id, node: 'match', status: run.status, reply };
-  }
-
-  let summary: SummaryDecision;
-  try {
-    const r = await deps.ollama.structured<SummaryDecision>({
-      stage: 'summary',
-      messages: [{ role: 'system', content: summarySystemPrompt },
-        { role: 'user', content: JSON.stringify({ symptoms: run.state.symptoms, verdict: run.state.verdict }) }],
-      schema: summarySchema,
-    });
-    summary = r.value;
-    await logStep(deps.pool, run.id, 'book_request', 'llm_decision', { for: 'case_summary' }, summary, r.model, r.latencyMs);
-  } catch (err) {
-    if (!(err instanceof OllamaUnavailableError)) throw err;
-    const s = run.state.symptoms;
-    summary = {
-      summary: `Patient reports ${s.mainComplaint ?? 'symptoms'} for ${s.duration ?? 'an unknown duration'}, severity ${s.severity ?? '?'} /10. History: ${s.medicalHistory ?? 'none stated'}. AI triage: ${run.state.verdict?.specialty} (${run.state.verdict?.urgency}).`,
-      priority: PRIORITY_BY_URGENCY[run.state.verdict?.urgency ?? 'routine'],
-    };
-    await logStep(deps.pool, run.id, 'book_request', 'fallback', { for: 'case_summary' }, summary);
   }
 
   // Atomic: the appointment row and its "booking submitted" notification are
@@ -72,12 +63,13 @@ export async function bookSelectedSlot(deps: EngineDeps, run: Run, slotId: strin
       `insert into public.appointments
          (user_id, patient_name, hospital_id, hospital_name, specialist_id, specialist_name, specialty,
           slot_id, external_slot_id, external_appointment_id, run_id, starts_at, price,
-          status, status_source, created_via_ai, ai_summary, suggested_priority)
-       values ($1,$2,$3,$4,$5,$6,$7, null,$8,$9,$10,$11,$12, 'pending','appointmed',true,$13,$14)
+          status, status_source, created_via_ai, ai_summary, suggested_priority, ai_report, ai_attachments)
+       values ($1,$2,$3,$4,$5,$6,$7, null,$8,$9,$10,$11,$12, 'pending','appointmed',true,$13,$14,$15,$16)
        returning id, starts_at`,
       [run.userId, patientName, option.hospitalId, option.hospitalName, option.specialistId,
        option.specialistName, option.specialty, option.id, externalAppointmentId, run.id,
-       option.startsAt, option.price, summary.summary, summary.priority]);
+       option.startsAt, option.price, report.summary, report.priority,
+       JSON.stringify(report), JSON.stringify(manifest)]);
     apptId = ins.rows[0].id;
     await client.query(
       `insert into public.notifications (user_id, type, title, body, data) values ($1, $2, $3, $4, $5)`,
@@ -97,7 +89,10 @@ export async function bookSelectedSlot(deps: EngineDeps, run: Run, slotId: strin
   await logStep(deps.pool, run.id, 'book_request', 'transition', { to: 'hospital_review' }, { appointmentId: apptId });
   await saveRun(deps.pool, run);
 
-  const reply = `✅ Your booking request is in!\n\n👨‍⚕️ ${option.specialistName} — ${option.specialty}\n🏥 ${option.hospitalName}\n📅 ${new Date(option.startsAt).toUTCString()}\n\nIt is now **pending** hospital confirmation — I'll notify you the moment they respond.`;
+  const shared = manifest.length > 0
+    ? `\n\n🔒 Shared with ${option.hospitalName} for this booking: a case report from our conversation, and the ${manifest.length} file(s) you uploaded (${manifest.map((a) => a.name).join(', ')}).`
+    : `\n\n🔒 Shared with ${option.hospitalName} for this booking: a case report from our conversation.`;
+  const reply = `✅ Your booking request is in!\n\n👨‍⚕️ ${option.specialistName} — ${option.specialty}\n🏥 ${option.hospitalName}\n📅 ${new Date(option.startsAt).toUTCString()}${shared}\n\nIt is now **pending** hospital confirmation — I'll notify you the moment they respond.`;
   await appendMessages(deps.pool, run.id, [{ role: 'assistant', content: reply }]);
   return { runId: run.id, node: 'hospital_review', status: 'waiting_hospital', reply,
     appointment: { id: apptId, status: 'pending', startsAt: option.startsAt,

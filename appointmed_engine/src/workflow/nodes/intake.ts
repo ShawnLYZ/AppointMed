@@ -5,6 +5,7 @@ import { appendMessages, getTranscript, logStep, saveRun } from '../runs.js';
 import type { EngineDeps } from '../../server.js';
 import type { ConsultReply, Run, Symptoms } from '../types.js';
 import { runTriage } from './triage.js';
+import { intakeAttachmentContext } from '../report.js';
 
 const mergeSymptoms = (cur: Symptoms, next: Symptoms): Symptoms => ({
   mainComplaint: next.mainComplaint ?? cur.mainComplaint,
@@ -15,10 +16,11 @@ const mergeSymptoms = (cur: Symptoms, next: Symptoms): Symptoms => ({
   currentMedications: next.currentMedications ?? cur.currentMedications,
 });
 
-export async function handleIntakeMessage(deps: EngineDeps, run: Run, text: string): Promise<ConsultReply> {
+export async function handleIntakeMessage(
+  deps: EngineDeps, run: Run, text: string, kind?: 'upload',
+): Promise<ConsultReply> {
   const transcript = await getTranscript(deps.pool, run.id);
-  const docs = run.state.attachments.filter((a) => a.extractedText)
-    .map((a) => `\n[Attached document "${a.name}"]:\n${a.extractedText}`).join('');
+  const docs = intakeAttachmentContext(run.state.attachments);
   const userMsg: ChatMessage = { role: 'user', content: docs ? text + docs : text };
   if (run.state.pendingImages.length > 0) userMsg.images = run.state.pendingImages;
 
@@ -38,7 +40,7 @@ export async function handleIntakeMessage(deps: EngineDeps, run: Run, text: stri
     if (!(err instanceof OllamaUnavailableError)) throw err;
     const reply = "I'm having trouble reaching my reasoning engine right now — could you say that again in a moment?";
     await logStep(deps.pool, run.id, 'intake', 'fallback', { text }, { reply, cause: String(err) });
-    await appendMessages(deps.pool, run.id, [{ role: 'user', content: text }, { role: 'assistant', content: reply }]);
+    await appendMessages(deps.pool, run.id, [{ role: 'user', content: text, ...(kind ? { kind } : {}) }, { role: 'assistant', content: reply }]);
     return { runId: run.id, node: run.node, status: run.status, reply };
   }
 
@@ -50,11 +52,11 @@ export async function handleIntakeMessage(deps: EngineDeps, run: Run, text: stri
     const reply = escalationReply(decision.redFlagReason);
     await logStep(deps.pool, run.id, 'intake', 'transition', { to: 'escalated' }, { reason: decision.redFlagReason });
     await saveRun(deps.pool, run);
-    await appendMessages(deps.pool, run.id, [{ role: 'user', content: text }, { role: 'assistant', content: reply }]);
+    await appendMessages(deps.pool, run.id, [{ role: 'user', content: text, ...(kind ? { kind } : {}) }, { role: 'assistant', content: reply }]);
     return { runId: run.id, node: run.node, status: 'escalated', reply, escalated: true };
   }
 
-  await appendMessages(deps.pool, run.id, [{ role: 'user', content: text }, { role: 'assistant', content: decision.reply }]);
+  await appendMessages(deps.pool, run.id, [{ role: 'user', content: text, ...(kind ? { kind } : {}) }, { role: 'assistant', content: decision.reply }]);
 
   if (decision.complete) {
     await logStep(deps.pool, run.id, 'intake', 'transition', { to: 'triage' }, { symptoms: run.state.symptoms });

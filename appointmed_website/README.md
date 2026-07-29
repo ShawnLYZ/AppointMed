@@ -48,12 +48,17 @@ by RLS, not by the UI. To watch the subscribe flow instead, use `/register` and 
 | `/` | `Landing` | — | Manager sign-in, the patient-value section, and published pricing |
 | `/register` | `Register` | — | The subscribe flow → `POST /portal/subscribe` on the engine; provisions the hospital, manager account, API key and starter inventory |
 | `/dashboard` | `Dashboard` | `ProtectedRoute` | Hospital overview — pending requests, a by-specialty breakdown and recent activity, kept live by its own `postgres_changes` subscription on `appointments` |
-| `/requests` | `Requests` | `ProtectedRoute` | **The real decision queue** — renders `ai_summary` + priority badge, subscribes to `postgres_changes` on `appointments`, calls `adapter.decision(...)` |
+| `/requests` | `Requests` | `ProtectedRoute` | **The real decision queue** — renders the case summary + priority badge per request, opens into a full case-report modal (structured clinical report, red flags, and uploaded attachments), subscribes to `postgres_changes` on `appointments`, calls `adapter.decision(...)` |
 | `/settings` | `Settings` | `ProtectedRoute` | Five tabs: Manager Profile, Hospital Info, Subscription, Specialists (`/portal/specialists/:id/toggle`) and Documents (`/portal/verification-docs`) |
 | `/integration/*` | `Integration` | `ProtectedRoute` | Three tabs: API Key (view / rotate), Documentation, and a live **API Tester** hitting `getSpecialists / getSlots / confirm` |
 
 `ProtectedRoute` (`src/components/ProtectedRoute.jsx`) gates on the Supabase session held by
 `src/context/AuthContext.jsx`.
+
+Each pending request opens into a full case view: the AI's structured clinical
+report, its red flags, and the images and PDFs the patient uploaded. Files are
+fetched from the engine only when the case is opened, and each view is recorded
+in the consultation's audit log.
 
 ## Layout
 

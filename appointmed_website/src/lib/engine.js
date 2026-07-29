@@ -35,4 +35,9 @@ export const engine = {
       method: 'POST',
       headers: { authorization: `Bearer ${token}` },
     }).then(json),
+
+  appointmentAttachments: (appointmentId, token) =>
+    fetch(`${ENGINE_URL}/portal/appointments/${appointmentId}/attachments`, {
+      headers: { authorization: `Bearer ${token}` },
+    }).then(json),
 }

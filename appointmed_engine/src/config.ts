@@ -25,6 +25,8 @@ export const config = {
     prefs: d(process.env.MODEL_PREFS, modelDefault),
     relax: d(process.env.MODEL_RELAX, modelDefault),
     summary: d(process.env.MODEL_SUMMARY, modelDefault),
+    // Must be a vision-capable model - this stage receives images.
+    attachment: d(process.env.MODEL_ATTACHMENT, modelDefault),
   },
   fallbackModel: d(process.env.MODEL_FALLBACK, 'qwen3.5:9b'),
 };

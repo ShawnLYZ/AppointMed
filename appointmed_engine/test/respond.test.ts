@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
-import { ENGINE_FIX, makeTestContext, type TestContext } from './helpers.js';
+import { caseReport, ENGINE_FIX, makeTestContext, type TestContext } from './helpers.js';
 import { makeSupabase } from '../src/supabase.js';
 import { config } from '../src/config.js';
 import type { SlotOption } from '../src/workflow/types.js';
@@ -110,7 +110,7 @@ function slot(overrides: Partial<SlotOption> = {}): SlotOption {
 async function driveToPresented(): Promise<{ runId: string; slot: SlotOption }> {
   ctx.adapter.slotsByKey[ENGINE_FIX.keyA] = [slot()];
   const { runId } = await start();
-  ctx.ollama.enqueue(completeIntake, cardiologyVerdict);
+  ctx.ollama.enqueue(completeIntake, cardiologyVerdict, caseReport());
   const first = await ctx.app.inject({
     method: 'POST', url: `/consult/${runId}/message`, headers: auth(), payload: { text: 'that is everything' },
   });
@@ -126,12 +126,12 @@ async function driveToPresented(): Promise<{ runId: string; slot: SlotOption }> 
 
 /**
  * Drives a full run to a pending appointment booked against hospital A (see
- * test/postback.test.ts). Consumes 4 ollama decisions total (intake, triage,
- * prefs, case summary).
+ * test/postback.test.ts). Consumes 4 ollama decisions total, all at
+ * driveToPresented (completeIntake, the triage verdict, the case report,
+ * then prefs) - booking itself is a pure database write.
  */
 async function bookViaFlow(): Promise<{ runId: string; appointmentId: string; externalAppointmentId: string; hospitalId: string }> {
   const { runId, slot: presented } = await driveToPresented();
-  ctx.ollama.enqueue({ summary: 'Case summary for the hospital team.', priority: 'medium' });
   const res = await ctx.app.inject({
     method: 'POST', url: `/consult/${runId}/select-slot`, headers: auth(), payload: { slotId: presented.id },
   });
@@ -234,7 +234,6 @@ test('re_match on a stale declined appointment is rejected once the run already 
   const presentedB = firstRematch.json().slotOptions[0];
 
   // Patient books B against hospital B - the run's one live appointment is now B, not A.
-  ctx.ollama.enqueue({ summary: 'Case summary for the hospital team.', priority: 'medium' });
   const bookB = await ctx.app.inject({
     method: 'POST', url: `/consult/${a.runId}/select-slot`, headers: auth(), payload: { slotId: presentedB.id },
   });

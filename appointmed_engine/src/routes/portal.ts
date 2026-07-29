@@ -1,6 +1,8 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type { EngineDeps } from '../server.js';
+import { logStep } from '../workflow/runs.js';
+import type { Attachment } from '../workflow/types.js';
 
 const PLANS = {
   starter: { price: 500, max: 5 }, growth: { price: 1200, max: 20 }, enterprise: { price: 2500, max: null },
@@ -168,6 +170,48 @@ export function registerPortalManagerRoutes(app: FastifyInstance, deps: EngineDe
       client.release();
     }
     return { apiKey };
+  });
+
+  app.get<{ Params: { id: string } }>('/portal/appointments/:id/attachments', async (req, reply) => {
+    const hospitalId = await requireManagerHospitalId(deps, req.user.id);
+    if (!hospitalId) return reply.code(403).send({ error: 'manager_only' });
+
+    // Tenancy AND the access window live in the SQL. A foreign appointment, a
+    // declined one and a nonexistent one are indistinguishable 404s - a hospital
+    // that refused the relationship stops holding a live key to the patient's
+    // photos.
+    const { rows } = await deps.pool.query(
+      `select a.run_id, r.state
+         from public.appointments a
+         left join public.workflow_runs r on r.id = a.run_id
+        where a.id = $1 and a.hospital_id = $2
+          and a.status not in ('declined','cancelled')`,
+      [req.params.id, hospitalId]);
+    if (rows.length === 0) return reply.code(404).send({ error: 'appointment_not_found' });
+
+    const runId: string | null = rows[0].run_id;
+    const stored: Attachment[] = rows[0].state?.attachments ?? [];
+    if (!runId || stored.length === 0) return { attachments: [] };
+
+    // One failing signature must not lose the others - a doctor may only need
+    // one of three files.
+    const attachments = await Promise.all(stored.map(async (a) => {
+      const { data } = await deps.supabase.storage.from('medical-files')
+        .createSignedUrl(a.path, 3600);
+      return {
+        type: a.type, name: a.name,
+        observation: a.observation ?? 'Not analysed.',
+        signedUrl: data?.signedUrl ?? null,
+      };
+    }));
+
+    // Audited against the PATIENT's run, so the step log can answer "which
+    // hospital opened my files, and when".
+    await logStep(deps.pool, runId, 'hospital_review', 'tool_call',
+      { tool: 'signAttachments', hospitalId, viewedBy: req.user.id },
+      { count: attachments.length });
+
+    return { attachments };
   });
 
   app.post('/portal/verification-docs', async (req, reply) => {

@@ -4,6 +4,7 @@ import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
+import CaseReportModal from '../components/CaseReportModal'
 import { supabase } from '../lib/supabase'
 import { adapter } from '../lib/adapter'
 import { useAuth } from '../context/AuthContext'
@@ -65,6 +66,7 @@ export default function Requests() {
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(null)
   const [busyId, setBusyId] = useState(null)
+  const [openCase, setOpenCase] = useState(null) // appointment being reviewed, or null
   const [reschedule, setReschedule] = useState(null) // appointment being rescheduled, or null
   const [proposedTime, setProposedTime] = useState('')
   const [toast, setToast] = useState(null) // { tone: 'success'|'error'|'info', message } | null
@@ -257,11 +259,16 @@ export default function Requests() {
                     </Badge>
                   </div>
 
-                  {appt.ai_summary && (
+                  {(appt.ai_report?.summary || appt.ai_summary) && (
                     <div className="requests__summary">
-                      <span className="requests__summary-label">AI case summary</span>
-                      <p>{appt.ai_summary}</p>
+                      <span className="requests__summary-label">AI case report</span>
+                      <p>{appt.ai_report?.summary || appt.ai_summary}</p>
                     </div>
+                  )}
+                  {(appt.ai_attachments?.length ?? 0) > 0 && (
+                    <p className="requests__attach-chip">
+                      📎 {appt.ai_attachments.length} attachment{appt.ai_attachments.length === 1 ? '' : 's'}
+                    </p>
                   )}
 
                   {!hasExternalId && (
@@ -271,6 +278,9 @@ export default function Requests() {
                   )}
 
                   <div className="requests__actions">
+                    <Button variant="secondary" onClick={() => setOpenCase(appt)} disabled={busy}>
+                      View full case
+                    </Button>
                     <Button onClick={() => decide(appt, 'confirm')} disabled={disableActions}>
                       Confirm
                     </Button>
@@ -337,6 +347,20 @@ export default function Requests() {
             </>
           )}
         </Modal>
+
+        {openCase && (
+          <CaseReportModal
+            appointment={openCase}
+            onClose={() => setOpenCase(null)}
+            busy={busyId === openCase.id}
+            canDecide={canDecide && Boolean(openCase.external_appointment_id)}
+            onDecide={(appt, decision) => {
+              setOpenCase(null)
+              if (decision === 'reschedule') { setReschedule(appt); setProposedTime('') }
+              else decide(appt, decision)
+            }}
+          />
+        )}
 
         {toast && (
           <div className={`requests__toast requests__toast--${toast.tone}`} role="status">

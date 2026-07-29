@@ -7,9 +7,9 @@
 // Alternative to editing this file: set VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
 // in `appointmed_website/.env.local` (git-ignored) — those win over the literals.
 export const SUPABASE_URL =
-  import.meta.env.VITE_SUPABASE_URL ?? 'https://YOUR_PROJECT_REF.supabase.co'
+  import.meta.env.VITE_SUPABASE_URL ?? 'https://gkbleklehgcsrxptolhe.supabase.co'
 export const SUPABASE_ANON_KEY =
-  import.meta.env.VITE_SUPABASE_ANON_KEY ?? 'YOUR_SUPABASE_ANON_KEY'
+  import.meta.env.VITE_SUPABASE_ANON_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrYmxla2xlaGdjc3J4cHRvbGhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4NDEwOTcsImV4cCI6MjA5ODQxNzA5N30.dPB0uYmxEnE309-v7DohugErLi-PMMblyj9UIEO8e_o'
 
 export const ENGINE_URL = import.meta.env.VITE_ENGINE_URL ?? 'http://localhost:8080'
 export const ADAPTER_URL = import.meta.env.VITE_ADAPTER_URL ?? 'http://localhost:8090'
