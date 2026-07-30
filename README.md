@@ -98,10 +98,6 @@ append-only log that can be read back afterwards, row by row.
 **Nothing about the reasoning leaves the machine.** There is no cloud AI provider, no remote inference
 API, no third party being shown someone's symptoms. The model runs locally.
 
-The system is deliberately architected so that **only the workflow engine reasons** — the patient app
-and the hospital portal contain no prompts and no workflow logic. That keeps the AI decision-making
-centralized, auditable, and swappable, independent of the patient- and hospital-facing interfaces.
-
 ---
 
 ## 2. The problem it solves
