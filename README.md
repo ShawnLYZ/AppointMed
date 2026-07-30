@@ -24,7 +24,7 @@
 
 > Real screenshots from the current build.
 
-## Mobile App
+## Mobile App (for Patient)
 <div align="center">
   <table>
     <tr>
@@ -42,7 +42,7 @@
   </table>
 </div>
 
-## Website
+## Website (for Clinic / Hospital)
 | Dashboard | Integration | Settings |
 |-----------|-------------------|--------------|
 | ![dashboard](assets/Dashboard.png) | ![integration](assets/Integration.png) | ![setting](assets/Settings.png) |
@@ -204,12 +204,12 @@ stateDiagram-v2
 ```
 patient describes symptoms (± photo / PDF)
         │
-        ▼   local-AI intake: six symptom fields pulled out of free text,
+        │   local-AI intake: six symptom fields pulled out of free text,
         │   targeted follow-ups on anything missing, red flags escalated
         ▼
    triage verdict  →  specialty (1 of 9) + urgency (asap | week | month | routine)
         │
-        ▼   preferences: budget, preferred hospital, time of day
+        │   preferences: budget, preferred hospital, time of day
         ▼
    matching  →  slot search fanned out across every subscribed hospital, filtered
         │        by those preferences; if nothing matches, the model picks ONE
@@ -221,7 +221,7 @@ patient describes symptoms (± photo / PDF)
    hospital manager reviews it in the portal — AI case report + priority badge —
    and confirms, declines or proposes a different time
         │
-        ▼   callback to the engine (shared-secret header, bounded retries)
+        │   callback to the engine (shared-secret header, bounded retries)
         ▼
    patient's app flips status live + notification.  A decline sends the run back
    to matching with that hospital excluded; a proposal waits for the patient.
@@ -268,7 +268,8 @@ it matches how private hospitals actually behave today.
                           └────────────────────┬─────────────────────────────┘
                                                │
                      POST /postback (x-postback-secret) → engine :8080
-
+                                               │
+                                               ▼
  ┌──────────────────────────────────────────────────────────────────────────┐
  │  Hosted Supabase   Postgres (12 tables, least-privilege row security) ·  │
  │  Auth · Storage (2 private buckets) · Realtime                           │
