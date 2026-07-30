@@ -71,14 +71,22 @@
 
 ## 1. What AppointMed is
 
-AppointMed turns the sentence *"I have chest pain"* into a **hospital-confirmed appointment**, as one
-automated, fully audited workflow.
+Every first visit to a clinic or hospital starts the same way: a doctor spends the first several
+minutes asking *"what's wrong, when did it start, how severe is it"* before any actual treatment can
+begin. AppointMed exists to capture that same intake conversation **before** the patient ever walks
+in, and to turn it directly into a confirmed appointment with the right specialist. **We're using AI to automate the initial patient intake conversation, replacing the doctor’s role at that stage.**
 
 A patient opens a chat and describes what is wrong in ordinary language — optionally attaching a photo
-of a rash or a PDF referral letter. A **local AI model, running on the same machine as the software**,
-reads that free text, works out which medical specialty is needed and how urgent it is, asks about
-budget and preferred timing, searches live appointment slots across **every subscribed hospital**,
-picks the ones that fit, and sends a booking request to the hospital that matches best.
+of a rash or a PDF referral letter — the same way they'd describe it out loud to a doctor. A **local AI
+model, running on the same machine as the software**, reads that free text and drives an **agentic
+workflow** through a persisted state machine, making five schema-constrained decisions along the way:
+how urgent the case is, which of nine medical specialties it needs, what the patient's scheduling
+preferences are, which constraint to relax if nothing matches, and how to degrade safely if the model
+itself becomes unavailable. Because every decision is constrained to a JSON Schema, the model's output
+is always a specific enum value or structured field — never free text that something downstream has to
+interpret. The workflow engine dispatches on those decisions: it searches live appointment slots across
+**every subscribed hospital**, picks the ones that fit, and sends a booking request to the hospital that
+matches best.
 
 A real human at that hospital then sees the request in a web portal — with an AI-written clinical case
 report and a HIGH / MEDIUM / LOW priority badge — and presses **Confirm**, **Decline** or **Reschedule**.
@@ -90,21 +98,42 @@ append-only log that can be read back afterwards, row by row.
 **Nothing about the reasoning leaves the machine.** There is no cloud AI provider, no remote inference
 API, no third party being shown someone's symptoms. The model runs locally.
 
+The system is deliberately architected so that **only the workflow engine reasons** — the patient app
+and the hospital portal contain no prompts and no workflow logic. That keeps the AI decision-making
+centralized, auditable, and swappable, independent of the patient- and hospital-facing interfaces.
+
 ---
 
 ## 2. The problem it solves
 
 ### The healthcare problem
 
+The first minutes of almost every clinic visit are spent redoing work the patient has already done in
+their own head: explaining what's wrong, when it started, how bad it is, what else is going on. The
+doctor cannot start treating until that conversation happens, so it happens again, in person, at the
+start of every single visit — a duplicated, unstructured, and undocumented step that adds friction for
+the patient and delay for the doctor.
+
+Layered on top of that is the separate problem of actually getting the appointment in the first place.
 Booking specialist care is still one of the most fragmented, manual errands in Malaysian healthcare —
 and in most of the world. A patient has to guess which specialist they need, phone or fill a form for
-each hospital separately, wait for a callback, and hope the price and the timing work out. Hospitals,
-on their side, receive unstructured requests with no clinical context and no priority, and triage them
-by hand.
+each hospital separately, wait for a callback, and hope the price and the timing work out. Hospitals, on
+their side, receive unstructured requests with no clinical context and no priority, and triage them by
+hand.
 
 This is not a hypothetical. Malaysia's largest private hospital groups still tell patients submitting
 an online booking form that *"this is not a confirmed appointment"* and that *"confirmation is
 pending"*. Request-and-callback remains the private-sector default.
+
+AppointMed collapses both problems into one conversation the patient only has to have once. By the time
+they physically arrive, the doctor already has a structured summary — main complaint, duration,
+severity, associated symptoms, medical history, current medications, and an AI-written case report — so
+the visit can start with treatment instead of repeating an intake the patient already gave. It serves
+three groups directly: **patients**, who get a mobile app to describe symptoms and receive appointment
+confirmations without navigating hospital phone systems; **hospital staff**, who use a web portal to
+review and act on incoming booking requests through the same authenticated API surface any external
+hospital system would use; and, by extension, **doctors**, who receive patients with pre-triaged,
+structured context instead of starting from zero.
 
 AppointMed attacks exactly that gap, in the four places a healthcare AI brief cares about:
 
